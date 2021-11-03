@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "memory.h": "c",
+        "stdlib.h": "c",
+        "algorithm": "cpp",
+        "bitset": "cpp",
+        "memory": "cpp",
+        "optional": "cpp",
+        "stdio.h": "c",
+        "__bit_reference": "c",
+        "chrono": "c",
+        "unordered_map": "c",
+        "locale": "cpp"
+    }
+}

@@ -1,0 +1,149 @@
+{
+	"version": 1,
+	"params": {
+		"buildDir": "build",
+		"buildOutput": "${buildDir}/${configName}/${buildTypeName}",
+		"defines": [
+			"$${defines}",
+			"UNICODE",
+			"_UNICODE"
+		],
+		"debugDefines": [
+			"_DEBUG",
+			"DEBUG"
+		],
+		"includePath": [
+			"$${includePath}",
+			"${workspaceRoot}/**"
+		]
+	},
+	"configurations": [
+		{
+			"name": "gcc",
+			"buildTypes": [
+				{
+					"name": "debug",
+					"params": {
+						"buildTypeParams": "-O0 -g",
+						"defines": [
+							"$${defines}",
+							"$${debugDefines}"
+						]
+					}
+				},
+				{
+					"name": "release",
+					"params": {
+						"buildTypeParams": "-O2 -g0"
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C++ Compile Sample Step",
+					"filePattern": "**/*.cpp",
+					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
+					"command": "g++ -c -std=c++98 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]",
+					"trimIncludePaths": true
+				},
+				{
+					"name": "C++ Link Sample Step",
+					"fileList": "${buildOutput}/**/*.o",
+					"command": "g++ [$${filePath}] -o [${buildOutput}/main.exe]"
+				}
+			],
+			"problemMatchers": [
+				"$gcc"
+			]
+		},
+		{
+			"name": "clang",
+			"buildTypes": [
+				{
+					"name": "debug",
+					"params": {
+						"buildTypeParams": "-O0 -g",
+						"defines": [
+							"$${defines}",
+							"$${debugDefines}"
+						]
+					}
+				},
+				{
+					"name": "release",
+					"params": {
+						"buildTypeParams": "-O2 -g0"
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C++ Compile Sample Step",
+					"filePattern": "**/*.cpp",
+					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
+					"command": "clang++ -c -std=c++98 ${buildTypeParams} (-I[$${includePath}]) (-D$${defines}) (-include [$${forcedInclude}]) [${filePath}] -o [${outputFile}]",
+					"trimIncludePaths": true
+				},
+				{
+					"name": "C++ Link Sample Step",
+					"fileList": "${buildOutput}/**/*.o",
+					"command": "clang++ [$${filePath}] -o [${buildOutput}/main.bin]"
+				}
+			],
+			"problemMatchers": [
+				"$gcc"
+			]
+		},
+		{
+			"name": "msvc",
+			"params": {
+				"scopeCppSDK": "C:/Program Files \\(x86\\)/Microsoft Visual Studio/2019/Community/SDK/ScopeCppSDK",
+				"libPaths": [
+					"${scopeCppSDK}/VC/include",
+					"${scopeCppSDK}/SDK/include/ucrt"
+				],
+				"linkLibPaths": [
+					"${scopeCppSDK}/VC/lib",
+					"${scopeCppSDK}/SDK/lib"
+				]
+			},
+			"buildTypes": [
+				{
+					"name": "debug",
+					"params": {
+						"buildTypeParams": "/MDd /Od /RTCsu /Zi /Fd[${buildOutput}/main.pdb]",
+						"linkTypeParams": "/DEBUG",
+						"defines": [
+							"$${defines}",
+							"$${debugDefines}"
+						]
+					}
+				},
+				{
+					"name": "release",
+					"params": {
+						"buildTypeParams": "/MD /Ox",
+						"linkTypeParams": ""
+					}
+				}
+			],
+			"buildSteps": [
+				{
+					"name": "C++ Compile Sample Step",
+					"filePattern": "**/*.cpp",
+					"outputFile": "${buildOutput}/${fileDirectory}/${fileName}.o",
+					"command": "[${scopeCppSDK}/VC/bin/cl.exe] ${buildTypeParams} /nologo /EHs /GR /GF /W3 /EHsc /FS /c (/I[$${libPaths}]) (/I[$${includePath}]) (/D\"$${defines}\") (/FI[$${forcedInclude}]) [${filePath}] /Fo[${outputFile}]",
+					"trimIncludePaths": true
+				},
+				{
+					"name": "C++ Link Sample Step",
+					"fileList": "${buildOutput}/**/*.o",
+					"command": "[${scopeCppSDK}/VC/bin/link.exe] /NOLOGO ${linkTypeParams} [$${filePath}] /OUT:[${buildOutput}/main.exe] (/LIBPATH:[$${linkLibPaths}])"
+				}
+			],
+			"problemMatchers": [
+				"$msCompile"
+			]
+		}
+	]
+}
