@@ -172,3 +172,16 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
         }
     }
 }
+
+// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
+uint32_t apNextPowerOfTwo(uint32_t v)
+{
+    v--;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
+    return v;
+}

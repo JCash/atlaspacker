@@ -60,19 +60,6 @@ static void apBinPackDestroyImage(apPacker* packer, apImage* image)
     free((void*)image);
 }
 
-// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
-static uint32_t NextPowerOfTwo(uint32_t v)
-{
-    v--;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    v++;
-    return v;
-}
-
 #define AP_MAX(_A, _B) ((_A) > (_B) ? (_A) : (_B))
 
 // For the skyline nodes that lie under the "width" of this rect,
@@ -273,7 +260,7 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
         bin_size = 128;
     }
     // Make sure the size is a power of two
-    bin_size = NextPowerOfTwo((uint32_t)bin_size);
+    bin_size = apNextPowerOfTwo((uint32_t)bin_size);
 
     apBinPackerPage* page = &packer->page;
     memset(page, 0, sizeof(apBinPackerPage));
@@ -321,7 +308,7 @@ apPacker* apCreateBinPacker(apBinPackOptions* options)
 {
     apBinPacker* packer = (apBinPacker*)malloc(sizeof(apBinPacker));
     memset(packer, 0, sizeof(apBinPacker));
-    packer->super.pack_type = AP_PT_BIN_PACK;
+    packer->super.packer_type = "apBinPacker";
     packer->super.createImage = apBinPackCreateImage;
     packer->super.destroyImage = apBinPackDestroyImage;
     packer->super.packImages = apBinPackPackImages;

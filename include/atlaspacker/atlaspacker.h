@@ -40,14 +40,9 @@ typedef struct {
     int         page;
 } apImage;
 
-typedef enum 
-{
-    AP_PT_BIN_PACK
-} apPackType;
-
 typedef struct
 {
-    apPackType pack_type;
+    int not_used;
 } apOptions;
 
 typedef struct {
@@ -63,20 +58,11 @@ typedef struct {
 
 typedef struct _apPacker
 {
-    apPackType pack_type;
+    const char* packer_type;
     apImage* (*createImage)(struct _apPacker* packer, const char* path, int width, int height, int channels, uint8_t* data);
     void (*destroyImage)(struct _apPacker* packer, apImage* image);
     void (*packImages)(struct _apPacker* packer, apContext* ctx);
 } apPacker;
-
-// typedef struct {
-//     const char*         texture_path;
-//     const char*         atlas_path;
-//     int                 num_images;
-//     apOptions           options;
-//     struct _apPacker*   packer;
-// } apRenderOptions;
-
 
 #pragma options align=reset
 
@@ -98,4 +84,5 @@ uint8_t*    apRenderPage(apContext* ctx, int page, int* width, int* height, int*
 /////////////////////////////////////////////////////////
 // Internal
 apPage*     apAllocPage(apContext* ctx);
+uint32_t    apNextPowerOfTwo(uint32_t v);
 
