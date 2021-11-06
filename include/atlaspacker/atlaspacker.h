@@ -26,8 +26,6 @@ typedef struct {
     int     index;
 } apPage;
 
-
-
 typedef struct {
     const char* path;
     uint8_t*    data;
@@ -85,4 +83,6 @@ uint8_t*    apRenderPage(apContext* ctx, int page, int* width, int* height, int*
 // Internal
 apPage*     apAllocPage(apContext* ctx);
 uint32_t    apNextPowerOfTwo(uint32_t v);
+// Rotates a coord (x,y) in fixed rotations of [(]0,90,180,270] degrees
+apPos       apRotate(int x, int y, int width, int height, int rotation);
 

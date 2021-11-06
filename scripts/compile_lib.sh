@@ -10,6 +10,7 @@ PREFIX=lib_
 # Output the files with a prefix: e.g. lib_atlaspacker.cpp.o
 compile_c_file src/atlaspacker.c ${PREFIX}
 compile_c_file src/binpacker.c ${PREFIX}
+compile_c_file src/tilepacker.c ${PREFIX}
 
 # Gathers all object files matching the prefix
 compile_lib atlaspacker ${PREFIX}

@@ -23,13 +23,14 @@ struct Image
     int height;
     int channels;
     uint8_t* data;
+    const char* path;
 };
 #pragma options align=reset
 
-static Image* CreateImage(uint32_t color, int w, int h, int c)
+static Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)
 {
     Image* image = new Image;
-    image->data = new uint8_t[w*h*c];
+    image->data = (uint8_t*)malloc((uint32_t)(w * h * c));
     image->width = w;
     image->height = h;
     image->channels = c;
@@ -41,12 +42,27 @@ static Image* CreateImage(uint32_t color, int w, int h, int c)
             *p++ = (color >> (j*8)) & 0xFF;
         }
     }
+    image->path = path;
+    return image;
+}
+
+static Image* LoadImage(const char* path)
+{
+    Image* image = new Image;
+    image->data = STBI_load(path, &image->width, &image->height, &image->channels);
+    if (!image->data)
+    {
+        delete image;
+        printf("Failed to load %s\n", path);
+        return 0;
+    }
+    image->path = path;
     return image;
 }
 
 static void DestroyImage(Image* image)
 {
-    delete[] image->data;
+    free((void*)image->data);
     delete image;
 }
 
@@ -108,11 +124,39 @@ TEST(PackerBinPack, PackSmall) {
     ASSERT_EQ(128, image->placement.size.width);
     ASSERT_EQ(64, image->placement.size.height);
 
+TEST(PackerTilePack, PackSmall) {
+    apTilePackOptions packer_options;
+    memset(&packer_options, 0, sizeof(packer_options));
+    apPacker* packer = apCreateTilePacker(&packer_options);
+
+    apOptions options;
+    apContext* ctx = apCreate(&options, packer);
+
+    const char* paths[] = {
+        "examples/basic/shape_L_128.png",
+        "examples/basic/box_fill_64.png",
+        "examples/basic/triangle_fill_64.png",
+    };
+    const int num_images = sizeof(paths)/sizeof(paths[0]);
+
+    Image* images[num_images];
+    for (int i = 0; i < num_images; ++i)
+    {
+        Image* image = LoadImage(paths[i]);
+        images[i] = image;
+        apAddImage(ctx, image->path, image->width, image->height, image->channels, image->data);
+    }
+
+    apPackImages(ctx);
+
+    DebugWriteOutput(ctx, "pack_tile_small");
+    
     apDestroy(ctx);
 
-    DestroyImage(image_a);
-    DestroyImage(image_b);
-    DestroyImage(image_c);
+    for (int i = 0; i < num_images; ++i)
+    {
+        DestroyImage(images[i]);
+    }
 }
 
 

@@ -70,7 +70,7 @@ apPage* apAllocPage(apContext* ctx)
     return page;
 }
 
-static apPos apRotate(int x, int y, int width, int height, int rotation)
+apPos apRotate(int x, int y, int width, int height, int rotation)
 {
     apPos pos;
     if (rotation == 90)
