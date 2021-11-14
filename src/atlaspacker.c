@@ -106,16 +106,52 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
     int h = page->dimensions.height;
     int c = ctx->num_channels;
     uint8_t* output = (uint8_t*)malloc(w * h * c);
+    memset(output, 0, w * h * c);
 
+    //printf("rendering page %d at %d x %d\n", page_index, w, h);
+
+    int tile_size = 16;
+    for (int y = 0; y < h; ++y)
+    {
+        for (int x = 0; x < w; ++x)
+        {
+            int tx = x / tile_size;
+            int ty = y / tile_size;
+            int odd = ((tx&1) && !(ty&1)) | (!(tx&1) && (ty&1));
+
+            uint8_t color_odd[4] = {255,255,255,128};
+            uint8_t color_even[4] = {0,0,0,128};
+            uint8_t* color = color_even;
+
+            if (odd)
+                color = color_odd;
+                
+            for (int i = 0; i < c; ++i)
+                output[y * (w*c) + (x*c) + i ] = color[i];
+        }
+    }
+
+
+    int num_rendered = 0;
     for (int i = 0; i < ctx->num_images; ++i)
     {
         apImage* image = ctx->images[i];
         if (image->page != page_index)
             continue;
         
+        //printf("rendering image %s:%d at %d x %d\n", image->path, image->rotation, image->placement.pos.x, image->placement.pos.y);
+
         apCopyRGBA(output, w, h, c,
                     image->data, image->width, image->height, image->channels,
                     image->placement.pos.x, image->placement.pos.y, image->rotation);
+
+        ++num_rendered;
+    }
+    if (num_rendered == 0)
+    {
+        printf("No images rendered on page %d\n", page_index);
+        free((void*)output);
+        return 0;
     }
 
     *width = w;
@@ -140,16 +176,6 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
             if (source_channels == 4 && source[4] == 0)
                 continue;
 
-            int debug = 0;
-            if (sx == 0 && sy == 0)
-                debug = 1;
-            if (sx == (source_width-1) && sy == 0)
-                debug = 1;
-            if (sx == 0 && sy == (source_height-1))
-                debug = 1;
-            if (sx == (source_width-1) && sy == (source_height-1))
-                debug = 1;
-            
             // Map the current coord into the rotated space
             apPos rotated_pos = apRotate(sx, sy, source_width, source_height, rotation);
 
@@ -167,8 +193,23 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
             for (int c = 0; c < source_channels; ++c)
                 color[c] = source[c];
 
+            int alphathreshold = 8;
+            if (alphathreshold >= 0 && color[3] <= alphathreshold)
+                continue; // Skip texels that are <= the alpha threshold
+
             for (int c = 0; c < dest_channels; ++c)
                 dest[dest_index+c] = color[c];
+            
+            if (color[3] > 0 && color[3] < 255)
+            {
+                uint32_t r = dest[dest_index+0] + 48;
+                dest[dest_index+0] = (uint8_t)(r > 255 ? 255 : r);
+                dest[dest_index+1] = dest[dest_index+1] / 2;
+                dest[dest_index+2] = dest[dest_index+2] / 2;
+
+                uint32_t a = dest[dest_index+3] + 128;
+                dest[dest_index+3] = (uint8_t)(a > 255 ? 255 : a);
+            }
         }
     }
 }

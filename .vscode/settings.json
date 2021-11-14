@@ -10,6 +10,12 @@
         "__bit_reference": "c",
         "chrono": "c",
         "unordered_map": "c",
-        "locale": "cpp"
+        "locale": "cpp",
+        "ios": "c",
+        "array": "c",
+        "iterator": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c"
     }
 }

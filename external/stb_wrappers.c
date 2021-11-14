@@ -11,6 +11,11 @@ int STBI_write_png(char const *filename, int w, int h, int comp, const void *dat
     return stbi_write_png(filename, w, h, comp, data, stride_in_bytes);
 }
 
+int STBI_write_tga(char const *filename, int w, int h, int comp, const void *data)
+{
+    return stbi_write_tga(filename, w, h, comp, data);
+}
+
 unsigned char* STBI_load(char const *filename, int *x, int *y, int *channels_in_file)
 {
     return stbi_load(filename, x, y, channels_in_file, 0);

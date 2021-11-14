@@ -106,5 +106,13 @@ void      apDestroyTilePacker(apPacker* packer);
         - Packer - Brute Force - Walk the tiles of each image. Merge vertices that are on the edge. Supports concave polygons.
 
 
+    * Geometry should be passed into the atlas packer
+        - Keeping the code separate will simplify things
+
+    * Render an image of the geometry.
+        - We'll use this to generate the tile image as we want to make sure
+        that the geometry won't intersect other areas of the final atlas image
+
+        - After renderint the geometry image, we'll use a dilate(texels) step, to make account for custom padding
 
 */
