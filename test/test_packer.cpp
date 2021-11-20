@@ -66,15 +66,27 @@ static int CompareImages(const Image** _a, const Image** _b)
 {
     const Image* a = *_a;
     const Image* b = *_b;
-    int area_a = a->width * a->height;
-    int area_b = b->width * b->height;
-    return (area_a < area_b) - (area_a > area_b);
+    int a_w = a->width;
+    int a_h = a->height;
+    int b_w = b->width;
+    int b_h = b->height;
+    int area_a = a_w * a_h;
+    int area_b = b_w * b_h;
+
+    int max_a = a_w > a_h ? a_w : a_h;
+    int min_a = a_w < a_h ? a_w : a_h;
+    int max_b = b_w > b_h ? b_w : b_h;
+    int min_b = b_w < b_h ? b_w : b_h;
+
+    float square_a = (max_a / (float)min_a) * area_a;
+    float square_b = (max_b / (float)min_b) * area_b;
+    return (square_a <= square_b) ? 1 : -1;
 }
 
 typedef int (*QsortFn)(const void*, const void*);
 static Image* SortImages(Image** images, int num_images)
 {
-    qsort(images, num_images, sizeof(images[0]), (QsortFn)CompareImages);
+    qsort(images, (size_t)num_images, sizeof(images[0]), (QsortFn)CompareImages);
 }
 
 static bool DebugWriteOutput(apContext* ctx, const char* pattern)
@@ -193,58 +205,49 @@ static bool DebugWriteOutput(apContext* ctx, const char* pattern)
 
 // Sorted on size
 const char* spineboy_files[] = {
-    "examples/spineboy/crosshair.png",
-    "examples/spineboy/eye-indifferent.png",
-    "examples/spineboy/eye-surprised.png",
-    "examples/spineboy/eyes.png",
-    "examples/spineboy/front-bracer.png",
-    "examples/spineboy/front-fist-closed.png",
-    "examples/spineboy/front-fist-open.png",
-    "examples/spineboy/front-foot.png",
-    "examples/spineboy/front-shin.png",
-    "examples/spineboy/front-thigh.png",
-    "examples/spineboy/front-upper-arm.png",
-    "examples/spineboy/goggles.png",
-    "examples/spineboy/gun.png",
-    "examples/spineboy/head.png",
-    "examples/spineboy/hoverboard-board.png",
-    "examples/spineboy/hoverboard-thruster.png",
-    "examples/spineboy/hoverglow-small.png",
-    "examples/spineboy/mouth-grind.png",
-    "examples/spineboy/mouth-oooo.png",
-    "examples/spineboy/mouth-smile.png",
-    "examples/spineboy/muzzle-glow.png",
-    "examples/spineboy/muzzle-ring.png",
-    "examples/spineboy/muzzle.png",
-    "examples/spineboy/muzzle01.png",
-    "examples/spineboy/muzzle02.png",
-    "examples/spineboy/muzzle03.png",
-    "examples/spineboy/muzzle04.png",
-    "examples/spineboy/muzzle05.png",
-    "examples/spineboy/neck.png",
-    "examples/spineboy/portal-bg.png",
-    "examples/spineboy/portal-flare1.png",
-    "examples/spineboy/portal-flare2.png",
-    "examples/spineboy/portal-flare3.png",
-    "examples/spineboy/portal-shade.png",
-    "examples/spineboy/portal-streaks1.png",
-    "examples/spineboy/portal-streaks2.png",
-    "examples/spineboy/rear-bracer.png",
-    "examples/spineboy/rear-foot.png",
-    "examples/spineboy/rear-shin.png",
-    "examples/spineboy/rear-thigh.png",
-    "examples/spineboy/rear-upper-arm.png",
-    "examples/spineboy/torso.png"
+"examples/spineboy/rear-thigh.png",
+"examples/spineboy/hoverglow-small.png",
+"examples/spineboy/rear-upper-arm.png",
+"examples/spineboy/rear-bracer.png",
+"examples/spineboy/portal-streaks1.png",
+"examples/spineboy/front-fist-open.png",
+"examples/spineboy/portal-flare2.png",
+"examples/spineboy/portal-flare3.png",
+"examples/spineboy/portal-streaks2.png",
+"examples/spineboy/portal-flare1.png",
+"examples/spineboy/muzzle-ring.png",
+"examples/spineboy/front-thigh.png",
+"examples/spineboy/eye-surprised.png",
+"examples/spineboy/gun.png",
+"examples/spineboy/portal-shade.png",
+"examples/spineboy/crosshair.png",
+"examples/spineboy/portal-bg.png",
+"examples/spineboy/front-foot.png",
+"examples/spineboy/front-upper-arm.png",
+"examples/spineboy/mouth-oooo.png",
+"examples/spineboy/rear-shin.png",
+"examples/spineboy/head.png",
+"examples/spineboy/front-bracer.png",
+"examples/spineboy/eye-indifferent.png",
+"examples/spineboy/hoverboard-board.png",
+"examples/spineboy/torso.png",
+"examples/spineboy/muzzle05.png",
+"examples/spineboy/muzzle04.png",
+"examples/spineboy/front-shin.png",
+"examples/spineboy/neck.png",
+"examples/spineboy/mouth-smile.png",
+"examples/spineboy/muzzle-glow.png",
+"examples/spineboy/goggles.png",
+"examples/spineboy/muzzle03.png",
+"examples/spineboy/muzzle02.png",
+"examples/spineboy/mouth-grind.png",
+"examples/spineboy/rear-foot.png",
+"examples/spineboy/hoverboard-thruster.png",
+"examples/spineboy/front-fist-closed.png",
+"examples/spineboy/muzzle01.png",
 };
 
 TEST(PackerTilePack, PackSpineboy) {
-    apTilePackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
-    apPacker* packer = apCreateTilePacker(&packer_options);
-
-    apOptions options;
-    apContext* ctx = apCreate(&options, packer);
-
     const int num_images = sizeof(spineboy_files)/sizeof(spineboy_files[0]);
 
     Image** images = new Image*[num_images];
@@ -256,6 +259,13 @@ TEST(PackerTilePack, PackSpineboy) {
 
     SortImages(images, num_images);
     
+    apTilePackOptions packer_options;
+    memset(&packer_options, 0, sizeof(packer_options));
+    apPacker* packer = apCreateTilePacker(&packer_options);
+
+    apOptions options;
+    apContext* ctx = apCreate(&options, packer);
+
     for (int i = 0; i < num_images; ++i)
     {
         Image* image = images[i];
@@ -266,6 +276,53 @@ TEST(PackerTilePack, PackSpineboy) {
     apPackImages(ctx);
 
     ASSERT_TRUE(DebugWriteOutput(ctx, "pack_tile_spineboy"));
+
+    apDestroy(ctx);
+
+    for (int i = 0; i < num_images; ++i)
+    {
+        DestroyImage(images[i]);
+    }
+}
+
+TEST(PackerBinPack, PackSpineboy) {
+    const int num_images = sizeof(spineboy_files)/sizeof(spineboy_files[0]);
+
+    Image** images = new Image*[num_images];
+    for (int i = 0; i < num_images; ++i)
+    {
+        Image* image = LoadImage(spineboy_files[i]);
+        images[i] = image;
+    }
+
+    SortImages(images, num_images);
+    
+    apBinPackOptions packer_options;
+    memset(&packer_options, 0, sizeof(packer_options));
+    packer_options.mode = AP_BP_MODE_DEFAULT;
+    apPacker* packer = apCreateBinPacker(&packer_options);
+
+    apOptions options;
+    apContext* ctx = apCreate(&options, packer);
+
+    for (int i = 0; i < num_images; ++i)
+    {
+        Image* image = images[i];
+        //printf("Adding image: %s, %d x %d  \t\tarea: %d\n", image->path, image->width, image->height, image->width * image->height);
+        apAddImage(ctx, image->path, image->width, image->height, image->channels, image->data);
+    }
+
+    apPackImages(ctx);
+
+    ASSERT_TRUE(DebugWriteOutput(ctx, "pack_bin_spineboy"));
+
+    apDestroy(ctx);
+
+    for (int i = 0; i < num_images; ++i)
+    {
+        DestroyImage(images[i]);
+    }
+}
 
     apDestroy(ctx);
 

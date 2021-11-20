@@ -73,7 +73,6 @@ static int apBinPackSLBLRectangleFitsAtNode(apBinPackerPage* page, int index, in
     int x = skyline[index].x;
     if (x + width > bin_width)
     {
-//printf("%s:%d\n", __FUNCTION__, __LINE__);
         return 0;
     }
 
@@ -84,7 +83,6 @@ static int apBinPackSLBLRectangleFitsAtNode(apBinPackerPage* page, int index, in
         y = AP_MAX(y, skyline[index].y);
         if (y + height > bin_height)
         {
-//printf("%s:%d\n", __FUNCTION__, __LINE__);
             return 0;
         }
 
@@ -111,12 +109,11 @@ static int apBinPackSkylineBLPackRect(apBinPackerPage* page, int width, int heig
 
     for (int i = 0; i < page->skyline_size; ++i)
     {
-        int y;
         for (int r = 0; r < 2; ++r)
         {
-
 //printf("    SL: %d  r: %d\n", i, r);
 
+            int y;
             if (apBinPackSLBLRectangleFitsAtNode(page, i, width, height, bin_width, bin_height, &y))
             {
 //printf("    if fit!  y: %d  width: %d   height: %d\n", y, width, height);
@@ -135,7 +132,10 @@ static int apBinPackSkylineBLPackRect(apBinPackerPage* page, int width, int heig
             } // else it didn't fit
             
             if (!allow_rotate || width == height)
+            {
+                // move on to the next skyline node
                 break;
+            }
 
             int tmp = width;
             width = height;
@@ -185,10 +185,10 @@ static void apBinPackFixupSkyline(apBinPackerPage* page, int index)
 {
     apBinPackSkylineNode* skyline = page->skyline;
 
-    // Now clear up/split any nodes that overlap with this new new
+    // Now clear up/split any nodes that overlap with this new node
     for (int i = index + 1; i < page->skyline_size; ++i)
     {
-		assert(skyline[i-1].x <= skyline[i].x);
+        assert(skyline[i-1].x <= skyline[i].x);
 
         if (skyline[i].x < (skyline[i-1].x + skyline[i-1].width))
         {
@@ -243,6 +243,35 @@ static int apBinPackPackRect(apBinPackerPage* page, int width, int height, int a
     return 0;
 }
 
+static void apBinPackPackGrowPage(apBinPackerPage* page)
+{
+    int prev_width = page->page->dimensions.width;
+    int width = prev_width;
+    int height = page->page->dimensions.height;
+    if (width <= height)
+        width *= 2;
+    else
+        height *= 2;
+    printf("Growing page to %d x %d\n", width, height);
+
+    // if (width > 16384 || height > 16384)
+    //     create new page
+
+    page->page->dimensions.width = width;
+    page->page->dimensions.height = height;
+
+    // If we grew horizontally, we need to insert a new skyline node
+    if (prev_width != width)
+    {
+        apRect rect;
+        rect.size.width = width - prev_width;
+        rect.size.height = 0;
+        rect.pos.x = prev_width;
+        rect.pos.y = 0;
+        apBinPackInsertSkylineNodeFromRect(page, page->skyline_size, &rect);
+    }
+}
+
 static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
 {
     apBinPacker* packer = (apBinPacker*)_packer;
@@ -265,13 +294,14 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
     apBinPackerPage* page = &packer->page;
     memset(page, 0, sizeof(apBinPackerPage));
     page->page = apAllocPage(ctx);
+    // binsize^2 is too conservative, so we'd rather risk growing the image a bit
     page->page->dimensions.width = bin_size;
-    page->page->dimensions.height = bin_size;
+    page->page->dimensions.height = bin_size / 2;
 
     apBinPackSkylineNode node;
     node.x = 0;
     node.y = 0;
-    node.width = bin_size;
+    node.width = page->page->dimensions.width;
     apBinPackInsertSkylineNode(page, 0, &node);
 
 // printf("packing...\n");
@@ -282,8 +312,6 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
     for (int i = 0; i < ctx->num_images; ++i)
     {
         apImage* image = ctx->images[i];
-
-// printf("  image: %d x %d %s\n", image->dimensions.width, image->dimensions.height, image->path);
 
         if (apBinPackPackRect(page, image->dimensions.width, image->dimensions.height, allow_rotate, &image->placement))
         {
@@ -297,6 +325,10 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
         else
         {
             // We need to grow the page size (or switch page)
+            apBinPackPackGrowPage(page);
+            // Try to refit this image again
+            --i;
+            continue;
         }
 
         //debugSkyline(page);
