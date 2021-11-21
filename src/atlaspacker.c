@@ -2,6 +2,7 @@
 #include <atlaspacker/binpacker.h>
 
 #include <assert.h>
+#include <math.h> // sqrtf
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h> // printf
@@ -29,7 +30,7 @@ void apDestroy(apContext* ctx)
     free((void*)ctx);
 }
 
-void apAddImage(apContext* ctx, const char* path, int width, int height, int channels, uint8_t* data)
+apImage* apAddImage(apContext* ctx, const char* path, int width, int height, int channels, const uint8_t* data)
 {
     if (channels > ctx->num_channels)
         ctx->num_channels = channels;
@@ -47,6 +48,8 @@ void apAddImage(apContext* ctx, const char* path, int width, int height, int cha
     ctx->num_images++;
     ctx->images = (apImage**)realloc(ctx->images, sizeof(apImage**)*ctx->num_images);
     ctx->images[ctx->num_images-1] = image;
+
+    return image;
 }
 
 void apPackImages(apContext* ctx)
@@ -96,7 +99,7 @@ apPos apRotate(int x, int y, int width, int height, int rotation)
 }
 
 static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
-                        uint8_t* source, int source_width, int source_height, int source_channels,
+                        const uint8_t* source, int source_width, int source_height, int source_channels,
                         int x, int y, int rotation);
 
 uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, int* channels)
@@ -165,7 +168,7 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
 // Can handle cases where the target texel is outside of the destination
 // Transparent source texels are ignored
 static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
-                        uint8_t* source, int source_width, int source_height, int source_channels,
+                        const uint8_t* source, int source_width, int source_height, int source_channels,
                         int dest_x, int dest_y, int rotation)
 {
     for (int sy = 0; sy < source_height; ++sy)
@@ -226,3 +229,60 @@ uint32_t apNextPowerOfTwo(uint32_t v)
     v++;
     return v;
 }
+
+static int apTexelNonZero(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int x, int y, int kernelsize)
+{
+    int start_x = x < kernelsize ? 0 : x - kernelsize;
+    int start_y = y < kernelsize ? 0 : y - kernelsize;
+    int end_x = (x + kernelsize) > (width-1) ? width-1 : x + kernelsize;
+    int end_y = (y + kernelsize) > (height-1) ? height-1 : y + kernelsize;
+
+    for (int yy = start_y; yy <= end_y; ++yy)
+    {
+        for (int xx = start_x; xx <= end_x; ++xx)
+        {
+            uint8_t color[] = { 255, 255, 255, 255 };
+
+            int index = yy*width*num_channels + xx*num_channels;
+            for (int c = 0; c < num_channels; ++c)
+                color[c] = image[index+c];
+
+            if (color[3] == 0)
+                continue; // completely transparent
+            if (color[0]|color[1]|color[2])
+            {
+                return 1; // non zero
+            }
+        }
+    }
+    return 0;
+}
+
+void apPosNormalize(apPosf* pos)
+{
+    float length = sqrtf(pos->x*pos->x + pos->y*pos->y);
+    pos->x /= length;
+    pos->y /= length;
+}
+
+float apPosDot(apPosf* a, apPosf* b)
+{
+    return a->x * b->x + a->y * b->y;
+}
+
+uint8_t* apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int dilate)
+{
+    uint8_t* out = (uint8_t*)malloc(width*height);
+    memset(out, 0, width*height);
+
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            int value = apTexelNonZero(image, width, height, num_channels, x, y, dilate);
+            out[y*width + x] = value*255;
+        }    
+    }
+    return out;
+}
+

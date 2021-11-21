@@ -64,7 +64,7 @@ typedef struct
 
 
 static int apTilePackCheckSubImage(int tile_size, int x, int y,
-                                int width, int height, int channels, int alphathreshold, uint8_t* data)
+                                int width, int height, int channels, int alphathreshold, const uint8_t* data)
 {
     for (int ty = y; ty < y + tile_size && ty < height; ++ty)
     {
@@ -166,7 +166,7 @@ static void apTilePackGrowTileImage(apTileImage* image, int width, int height, i
 }
 
 static void apTilePackMakeTilesImage(apTileImage* image, int tile_size,
-                                int width, int height, int channels, uint8_t* data)
+                                int width, int height, int channels, const uint8_t* data)
 {
     int twidth = image->twidth;
 
@@ -283,7 +283,7 @@ static void DebugPrintTiles(apTileImage* image)
 }
 
 
-static apImage* apTilePackCreateImage(apPacker* _packer, const char* path, int width, int height, int channels, uint8_t* data)
+static apImage* apTilePackCreateImage(apPacker* _packer, const char* path, int width, int height, int channels, const uint8_t* data)
 {
     apTilePacker* packer = (apTilePacker*)_packer;
 

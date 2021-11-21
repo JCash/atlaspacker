@@ -47,7 +47,7 @@ typedef struct
 // }
 
 
-static apImage* apBinPackCreateImage(apPacker* packer, const char* path, int width, int height, int channels, uint8_t* data)
+static apImage* apBinPackCreateImage(apPacker* packer, const char* path, int width, int height, int channels, const uint8_t* data)
 {
     apImage* image = (apImage*)malloc(sizeof(apImage));
     memset(image, 0, sizeof(apImage));

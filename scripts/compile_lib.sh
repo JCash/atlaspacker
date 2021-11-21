@@ -11,6 +11,7 @@ PREFIX=lib_
 compile_c_file src/atlaspacker.c ${PREFIX}
 compile_c_file src/binpacker.c ${PREFIX}
 compile_c_file src/tilepacker.c ${PREFIX}
+compile_c_file src/convexhull.c ${PREFIX}
 
 # Gathers all object files matching the prefix
 compile_lib atlaspacker ${PREFIX}

@@ -12,6 +12,11 @@ typedef struct {
     int x, y;
 } apPos;
 
+typedef struct
+{
+    float x, y;
+} apPosf;
+
 typedef struct {
     int width, height;
 } apSize;
@@ -27,15 +32,15 @@ typedef struct {
 } apPage;
 
 typedef struct {
-    const char* path;
-    uint8_t*    data;
-    apSize      dimensions;  // Original dimensions
-    apRect      placement;   // The placement in the atlas
-    int         width;
-    int         height;
-    int         channels;
-    int         rotation;    // Degrees CCW: 0, 90, 180, 270
-    int         page;
+    const char*     path;
+    const uint8_t*  data;
+    apSize          dimensions;  // Original dimensions
+    apRect          placement;   // The placement in the atlas
+    int             width;
+    int             height;
+    int             channels;
+    int             rotation;    // Degrees CCW: 0, 90, 180, 270
+    int             page;
 } apImage;
 
 typedef struct
@@ -57,7 +62,7 @@ typedef struct {
 typedef struct _apPacker
 {
     const char* packer_type;
-    apImage* (*createImage)(struct _apPacker* packer, const char* path, int width, int height, int channels, uint8_t* data);
+    apImage* (*createImage)(struct _apPacker* packer, const char* path, int width, int height, int channels, const uint8_t* data);
     void (*destroyImage)(struct _apPacker* packer, apImage* image);
     void (*packImages)(struct _apPacker* packer, apContext* ctx);
 } apPacker;
@@ -67,7 +72,7 @@ typedef struct _apPacker
 /////////////////////////////////////////////////////////
 apContext*  apCreate(apOptions* options, apPacker* packer);
 void        apDestroy(apContext* ctx);
-void        apAddImage(apContext* ctx, const char* path, int width, int height, int channels, uint8_t* data);
+apImage*    apAddImage(apContext* ctx, const char* path, int width, int height, int channels, const uint8_t* data);
 void        apPackImages(apContext* ctx);
 
 // Get number of pages
@@ -78,6 +83,11 @@ uint8_t*    apRenderPage(apContext* ctx, int page, int* width, int* height, int*
 
 //void        apRenderLayout(apContext* ctx, void (*callback)(int page, apImage* image));
 
+// Creates an image where all the rgba -> 0 or 1.
+// It also dilates the image if necessary.
+// This image is used when creating hulls around the image
+uint8_t*    apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int dilate);
+
 
 /////////////////////////////////////////////////////////
 // Internal
@@ -86,3 +96,5 @@ uint32_t    apNextPowerOfTwo(uint32_t v);
 // Rotates a coord (x,y) in fixed rotations of [(]0,90,180,270] degrees
 apPos       apRotate(int x, int y, int width, int height, int rotation);
 
+void        apPosNormalize(apPosf* dir);
+float       apPosDot(apPosf* a, apPosf* b);

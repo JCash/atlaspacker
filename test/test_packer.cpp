@@ -9,8 +9,10 @@ extern "C" {
 #include <atlaspacker/atlaspacker.h>
 #include <atlaspacker/binpacker.h>
 #include <atlaspacker/tilepacker.h>
+#include <atlaspacker/convexhull.h>
 }
 
+#include "render.c"
 
 #pragma pack(1)
 struct Image
@@ -84,7 +86,7 @@ static int CompareImages(const Image** _a, const Image** _b)
 }
 
 typedef int (*QsortFn)(const void*, const void*);
-static Image* SortImages(Image** images, int num_images)
+static void SortImages(Image** images, int num_images)
 {
     qsort(images, (size_t)num_images, sizeof(images[0]), (QsortFn)CompareImages);
 }
@@ -204,7 +206,7 @@ static bool DebugWriteOutput(apContext* ctx, const char* pattern)
 // }
 
 // Sorted on size
-const char* spineboy_files[] = {
+static const char* spineboy_files[] = {
 "examples/spineboy/rear-thigh.png",
 "examples/spineboy/hoverglow-small.png",
 "examples/spineboy/rear-upper-arm.png",
@@ -324,6 +326,78 @@ TEST(PackerBinPack, PackSpineboy) {
     }
 }
 
+TEST(HullConvex, CreateHullImage)
+{
+    Image* image = LoadImage("examples/spineboy/gun.png");
+    
+    for (int i = 0; i < 3; ++i)
+    {
+        uint8_t* hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, i);
+
+        // we use tga here to remove the compression time from the tests
+        char path[64];
+        snprintf(path, sizeof(path), "image_%s_dilate_%02d.tga", "convexhull", i);
+        int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+        if (result)
+            printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+        free((void*)hull_image);
+    }
+
+    DestroyImage(image);
+}
+
+TEST(HullConvex, CreateHull)
+{
+    Image* image = LoadImage("examples/spineboy/gun.png");
+    uint32_t size = (uint32_t)(image->width*image->height*image->channels);
+    uint8_t* imagecopy = (uint8_t*)malloc(size);
+        
+    int dilate = 0;
+    uint8_t* hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
+    
+    for (int k = 0; k < 5; ++k)
+    {
+        memcpy(imagecopy, image->data, size);
+
+        int num_planes = 6 + 2 * k;
+        int num_vertices;
+        apPosf* vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
+
+        ASSERT_NE((apPosf*)0, vertices);
+
+        uint8_t color[] = {127, 64, 0, 255};
+        for (int i = 0; i < num_planes; ++i)
+        {
+            //printf("vertex %d: %.3f, %.3f\n", i, vertices[i].x, vertices[i].y);
+
+            int j = (i+1)%num_planes;
+            apPosf p0 = vertices[i];
+            apPosf p1 = vertices[j];
+            p0.x = (p0.x + 0.5f) * image->width * 0.999f;
+            p0.y = (p0.y + 0.5f) * image->height * 0.999f;
+            p1.x = (p1.x + 0.5f) * image->width * 0.999f;
+            p1.y = (p1.y + 0.5f) * image->height * 0.999f;
+
+            //printf("           %3d, %3d\n", (int)p0.x,  (int)p0.y);
+
+            draw_line((int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y, imagecopy, image->width, image->height, image->channels, color);
+        }
+
+        free((void*)vertices);
+
+        // we use tga here to remove the compression time from the tests
+        char path[64];
+        snprintf(path, sizeof(path), "image_%s_vertices_%02d.tga", "convexhull", num_planes);
+        int result = STBI_write_tga(path, image->width, image->height, image->channels, imagecopy);
+        if (result)
+            printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+    }
+
+    free((void*)imagecopy);
+    free((void*)hull_image);
+    DestroyImage(image);
+}
     apDestroy(ctx);
 
     for (int i = 0; i < num_images; ++i)
