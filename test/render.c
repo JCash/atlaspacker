@@ -74,8 +74,8 @@ static void draw_triangle(const apPosf* v0, const apPosf* v1, const apPosf* v2, 
 
     // Rasterize
     apPosf p;
-    for (p.y = (float)minY; p.y <= maxY; p.y++) {
-        for (p.x = (float)minX; p.x <= maxX; p.x++) {
+    for (p.y = (float)minY; p.y <= (float)maxY; p.y++) {
+        for (p.x = (float)minX; p.x <= (float)maxX; p.x++) {
             // Determine barycentric coordinates
             int w0 = orient2d(v1, v2, &p);
             int w1 = orient2d(v2, v0, &p);

@@ -80,8 +80,8 @@ static int CompareImages(const Image** _a, const Image** _b)
     int max_b = b_w > b_h ? b_w : b_h;
     int min_b = b_w < b_h ? b_w : b_h;
 
-    float square_a = (max_a / (float)min_a) * area_a;
-    float square_b = (max_b / (float)min_b) * area_b;
+    float square_a = ((float)max_a / (float)min_a) * (float)area_a;
+    float square_b = ((float)max_b / (float)min_b) * (float)area_b;
     return (square_a <= square_b) ? 1 : -1;
 }
 
@@ -257,10 +257,10 @@ static void DebugDrawHull(const apPosf* vertices, int num_vertices, uint8_t* col
         int j = (i+1)%num_vertices;
         apPosf p0 = vertices[i];
         apPosf p1 = vertices[j];
-        p0.x = (p0.x + 0.5f) * image->width * 0.999f;
-        p0.y = (p0.y + 0.5f) * image->height * 0.999f;
-        p1.x = (p1.x + 0.5f) * image->width * 0.999f;
-        p1.y = (p1.y + 0.5f) * image->height * 0.999f;
+        p0.x = (p0.x + 0.5f) * (float)image->width * 0.999f;
+        p0.y = (p0.y + 0.5f) * (float)image->height * 0.999f;
+        p1.x = (p1.x + 0.5f) * (float)image->width * 0.999f;
+        p1.y = (p1.y + 0.5f) * (float)image->height * 0.999f;
 
         draw_line((int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y, data, image->width, image->height, image->channels, color);
     }
