@@ -1,0 +1,54 @@
+name: Build with bob
+
+on:
+  push:
+  pull_request_target:
+  schedule:
+    # nightly at 06:00 on the 1st and 15th
+    - cron: 0 6 1,15 * *
+
+env:
+  VERSION_FILENAME: 'info.json'
+  BUILD_SERVER: 'https://build-stage.defold.com'
+  CHANNEL: 'alpha'
+  PLUGIN_SO: './defold-rive/plugins/lib/x86_64-linux/libRiveExt.so'
+
+jobs:
+
+  build_macos:
+    runs-on: macOS-latest
+
+    name: Build & Test
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Compile Lib
+        run: |
+          ./scripts/compile_lib.sh
+
+      - name: Compile Test
+        run: |
+          ./scripts/compile_test.sh
+
+      - name: Run Test
+        run: |
+          ./build/test_packer
+
+  build_ubuntu:
+    runs-on: ubuntu-latest
+
+    name: Build & Test
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Compile Lib
+        run: |
+          ./scripts/compile_lib.sh
+
+      - name: Compile Test
+        run: |
+          ./scripts/compile_test.sh
+
+      - name: Run Test
+        run: |
+          ./build/test_packer
