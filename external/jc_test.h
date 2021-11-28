@@ -1474,9 +1474,9 @@ static size_t jc_test_snprint_time(char* buffer, size_t buffer_len, jc_test_time
     if( t < 5000 )
         printed = JC_TEST_SNPRINTF(buffer, buffer_len, "%g %s", JC_TEST_STATIC_CAST(double, t), JC_TEST_MICROSECONDS_STR);
     else if( t < 500000 )
-        printed = JC_TEST_SNPRINTF(buffer, buffer_len, "%g %s", t / 1000.0, "ms");
+        printed = JC_TEST_SNPRINTF(buffer, buffer_len, "%g %s", (double)t / 1000.0, "ms");
     else
-        printed = JC_TEST_SNPRINTF(buffer, buffer_len, "%g %s", t / 1000000.0, "s");
+        printed = JC_TEST_SNPRINTF(buffer, buffer_len, "%g %s", (double)t / 1000000.0, "s");
     return JC_TEST_STATIC_CAST(size_t, printed);
 }
 
