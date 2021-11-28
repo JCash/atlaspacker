@@ -7,6 +7,8 @@ source ${SCRIPTDIR}/compile.sh
 
 PREFIX=testpacker
 
+export CFLAGS="${CFLAGS} -DJC_TEST_USE_COLORS"
+
 # Output the files with a prefix: e.g. lib_atlaspacker.cpp.o
 compile_cpp_file test/test_packer.cpp ${PREFIX}
 

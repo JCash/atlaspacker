@@ -1,8 +1,9 @@
 #include <atlaspacker/convexhull.h>
 #include <atlaspacker/atlaspacker.h>
-#include <math.h> // cosf/sinf/M_PI
 #include <stdlib.h> // malloc
 #include <stdio.h> // printf
+#define _USE_MATH_DEFINES
+#include <math.h> // cosf/sinf/M_PI
 
 typedef struct
 {

@@ -18,7 +18,7 @@ jobs:
   build_macos:
     runs-on: macOS-latest
 
-    name: Build & Test
+    name: macOS
     steps:
       - uses: actions/checkout@v2
 
@@ -37,7 +37,7 @@ jobs:
   build_ubuntu:
     runs-on: ubuntu-latest
 
-    name: Build & Test
+    name: Ubuntu
     steps:
       - uses: actions/checkout@v2
 
