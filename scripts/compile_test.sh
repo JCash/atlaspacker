@@ -16,5 +16,5 @@ compile_cpp_file test/test_packer.cpp ${PREFIX}
 compile_lib testpacker ${PREFIX}
 
 # Gathers creates an executable by linking the libraries
-link_exe test_packer stb testpacker atlaspacker
+link_exe test_packer testpacker stb atlaspacker
 
