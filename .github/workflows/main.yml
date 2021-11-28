@@ -32,7 +32,10 @@ jobs:
 
       - name: Run Test
         run: |
-          ./build/test_packer
+          ./build/test_convexhull
+          ./build/test_atlaspacker
+          ./build/test_binpacker
+          ./build/test_tilepacker
 
   build_ubuntu:
     runs-on: ubuntu-latest
@@ -51,4 +54,7 @@ jobs:
 
       - name: Run Test
         run: |
-          ./build/test_packer
+          ./build/test_convexhull
+          ./build/test_atlaspacker
+          ./build/test_binpacker
+          ./build/test_tilepacker
