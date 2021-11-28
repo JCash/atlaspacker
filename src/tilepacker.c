@@ -649,9 +649,12 @@ uint8_t* apTilePackerDebugCreateImageFromTileImage(apImage* _image, int tile_ima
                 {
                     int outy = y * tile_size + yy;
                     int outx = x * tile_size + xx;
-                    int index = outy * outwidth + outx;
-
-                    mem[index] = value;
+                    // The tile image size is "rounded up", which means it doesn't match precisely with the output image
+                    if (outx < outwidth && outy < outheight)
+                    {
+                        int index = outy * outwidth + outx;
+                        mem[index] = value;
+                    }
                 }
             }
         }

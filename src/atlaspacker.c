@@ -178,7 +178,7 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
         for (int sx = 0; sx < source_width; ++sx, source += source_channels)
         {
             // Skip copying texels with alpha=0
-            if (source_channels == 4 && source[4] == 0)
+            if (source_channels == 4 && source[3] == 0)
                 continue;
 
             // Map the current coord into the rotated space
