@@ -15,9 +15,18 @@ typedef struct
 
 #pragma options align=reset
 
-apPacker* apCreateTilePacker(apTilePackOptions* options);
-void      apDestroyTilePacker(apPacker* packer);
+apPacker* apTilePackerCreate(apTilePackOptions* options);
+void      apTilePackerDestroy(apPacker* packer);
+int       apTilePackerGetTileSize(apPacker* packer);
 
+// The list of vertices is a triangle list.
+// Each vertex is in range [-0.5, 0.5]
+void      apTilePackerCreateTileImageFromTriangles(apPacker* packer, apImage* image, apPosf* vertices, int num_vertices);
+
+// Private (unit testing)
+
+// Creates a grayscale image of same dimensions as the image (width*height*1)
+uint8_t*  apTilePackerDebugCreateImageFromTileImage(apImage* image, int index, int tile_size);
 
 /*
 

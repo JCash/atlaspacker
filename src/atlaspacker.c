@@ -43,8 +43,7 @@ apImage* apAddImage(apContext* ctx, const char* path, int width, int height, int
     image->height = height;
     image->channels = channels;
     memset(&image->placement, 0, sizeof(image->placement));
-    
-    // add to the other images
+
     ctx->num_images++;
     ctx->images = (apImage**)realloc(ctx->images, sizeof(apImage**)*ctx->num_images);
     ctx->images[ctx->num_images-1] = image;
@@ -122,8 +121,11 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
             int ty = y / tile_size;
             int odd = ((tx&1) && !(ty&1)) | (!(tx&1) && (ty&1));
 
-            uint8_t color_odd[4] = {255,255,255,128};
-            uint8_t color_even[4] = {0,0,0,128};
+            // uint8_t color_odd[4] = {255,255,255,128};
+            // uint8_t color_even[4] = {0,0,0,128};
+            uint8_t color_odd[4] = {32,32,32,255};
+            uint8_t color_even[4] = {16,16,16,255};
+
             uint8_t* color = color_even;
 
             if (odd)
@@ -258,16 +260,95 @@ static int apTexelNonZero(const uint8_t* image, uint32_t width, uint32_t height,
     return 0;
 }
 
-void apPosNormalize(apPosf* pos)
+apPosf apMathNormalize(apPosf a)
 {
-    float length = sqrtf(pos->x*pos->x + pos->y*pos->y);
-    pos->x /= length;
-    pos->y /= length;
+    float length = sqrtf(a.x*a.x + a.y*a.y);
+    apPosf v = { a.x / length, a.y / length};
+    return v;
 }
 
-float apPosDot(apPosf* a, apPosf* b)
+float apMathDot(apPosf a, apPosf b)
 {
-    return a->x * b->x + a->y * b->y;
+    return a.x * b.x + a.y * b.y;
+}
+
+apPosf apMathSub(apPosf a, apPosf b)
+{
+    apPosf v = { a.x - b.x, a.y - b.y };
+    return v;
+}
+apPosf apMathAdd(apPosf a, apPosf b)
+{
+    apPosf v = { a.x + b.x, a.y + b.y };
+    return v;
+}
+apPosf apMathScale(apPosf a, float s)
+{
+    apPosf v = { a.x * s, a.y * s};
+    return v;
+}
+apPosf apMathMul(apPosf a, apPosf b)
+{
+    apPosf v = { a.x * b.x, a.y * b.y };
+    return v;
+}
+float apMathMax(float a, float b)
+{
+    return a > b ? a : b;
+}
+float apMathMin(float a, float b)
+{
+    return a < b ? a : b;
+}
+int apMathRoundUp(int x, int multiple)
+{
+    return ((x + multiple - 1) / multiple) * multiple;
+}
+
+static int apOverlapAxisTest2D(apPosf axis, const apPosf* a, int sizea, const apPosf* b, int sizeb)
+{
+    float mina = 100000.0f;
+    float maxa = -100000.0f;
+    float minb = 100000.0f;
+    float maxb = -100000.0f;
+
+    for (int j = 0; j < sizea; ++j)
+    {
+        float d = apMathDot(axis, a[j]);
+        maxa = apMathMax(maxa, d);
+        mina = apMathMin(mina, d);
+    }
+
+    for (int j = 0; j < sizeb; ++j)
+    {
+        float d = apMathDot(axis, b[j]);
+        maxb = apMathMax(maxb, d);
+        minb = apMathMin(minb, d);
+    }
+
+    if (maxa < minb || maxb < mina)
+        return 0;
+    return 1;
+}
+
+// Vertices are in CCW order
+int apOverlapTest2D(const apPosf* a, int sizea, const apPosf* b, int sizeb)
+{
+    for (int i = 0; i < sizea; ++i)
+    {
+        apPosf diff = apMathNormalize(apMathSub(a[(i+1)%sizea], a[i]));
+        apPosf n = { -diff.y, diff.x };
+        if (!apOverlapAxisTest2D(n, a, sizea, b, sizeb))
+            return 0;
+    }
+    for (int i = 0; i < sizeb; ++i)
+    {
+        apPosf diff = apMathNormalize(apMathSub(b[(i+1)%sizeb], b[i]));
+        apPosf n = { -diff.y, diff.x };
+        if (!apOverlapAxisTest2D(n, a, sizea, b, sizeb))
+            return 0;
+    }
+    return 1;
 }
 
 uint8_t* apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int dilate)

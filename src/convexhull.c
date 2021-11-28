@@ -24,7 +24,7 @@ static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width
         float angle = i * 2.0f * M_PI / (float)num_planes;
         hull->normals[i].x = cosf(angle);
         hull->normals[i].y = sinf(angle);
-        apPosNormalize(&hull->normals[i]);
+        hull->normals[i] = apMathNormalize(hull->normals[i]);
     }
 
     apPos center = { width / 2.0f, height / 2.0f };
@@ -40,16 +40,16 @@ static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width
             // project each corner of the texel along the plane normal
             apPosf corners[4] ={{ x + 0 - center.x, y + 0 - center.y },
                                 { x + 1 - center.x, y + 0 - center.y },
-                                { x + 0 - center.x, y + 1 - center.y },
-                                { x + 1 - center.x, y + 1 - center.y }};
+                                { x + 1 - center.x, y + 1 - center.y },
+                                { x + 0 - center.x, y + 1 - center.y }};
 
             for (int p = 0; p < num_planes; ++p)
             {
-                apPosf* dir = &hull->normals[p];
-                
+                apPosf dir = hull->normals[p];
+
                 for (int c = 0; c < 4; ++c)
                 {
-                    float distance = apPosDot(dir, &corners[c]);
+                    float distance = apMathDot(dir, corners[c]);
                     if (distance > hull->distances[p])
                         hull->distances[p] = distance;
                 }
@@ -60,10 +60,9 @@ static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width
     return empty ? 0 : 1;
 }
 
-static inline apPosf apConvexHullCalculatePoint(apPosf dir, float distance, float width, float height)
+static inline apPosf apConvexHullCalculatePoint(apPosf dir, float distance)
 {
-    // scale the point into [-0.5, 0.5]
-    apPosf p = { (dir.x * distance) / width, (dir.y * distance) / height };
+    apPosf p = { dir.x * distance, dir.y * distance};
     return p;
 }
 
@@ -85,11 +84,16 @@ static apPosf* apConvexHullCalculateVertices(apConvexHull* hull, int width, int 
 
     apPosf* vertices = (apPosf*)malloc(sizeof(apPosf)*num_planes);
 
+    float half_width = width/2.0f;
+    float half_height = height/2.0f;
+
     for (int i = 0; i < num_planes; ++i)
     {
         int j = (i+1)%num_planes;
-        apPosf p0 = apConvexHullCalculatePoint(hull->normals[i], hull->distances[i], (float)width, (float)height);
-        apPosf p1 = apConvexHullCalculatePoint(hull->normals[j], hull->distances[j], (float)width, (float)height);
+
+        // in texel space
+        apPosf p0 = apConvexHullCalculatePoint(hull->normals[i], hull->distances[i]);
+        apPosf p1 = apConvexHullCalculatePoint(hull->normals[j], hull->distances[j]);
 
         // directions for the lines
         apPosf d0 = { -hull->normals[i].y, hull->normals[i].x };
@@ -99,10 +103,14 @@ static apPosf* apConvexHullCalculateVertices(apConvexHull* hull, int width, int 
         float t = ((p0.y - p1.y) * d1.x - (p0.x - p1.x) * d1.y) / (d0.x * d1.y - d1.x * d0.y);
         apPosf vertex = { p0.x + d0.x * t, p0.y + d0.y * t };
 
+        // to [(-0.5,-0.5), (0.5,0.5)]
+        vertex.x = (vertex.x / half_width) * 0.5f;
+        vertex.y = (vertex.y / half_height) * 0.5f;
+
         vertex.x = apConvexHullRoundEdge(vertex.x);
         vertex.y = apConvexHullRoundEdge(vertex.y);
 
-        vertices[i] = vertex;
+        vertices[num_planes - i - 1] = vertex;
     }
 
     return vertices;
