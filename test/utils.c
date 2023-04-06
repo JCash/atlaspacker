@@ -1,10 +1,21 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h> // qsort
+#include <string.h> // strcmp
+
 #include <atlaspacker/atlaspacker.h>
 
 #include "utils.h"
 #include "render.h"
+
+#if defined(_WIN32)
+    #include "win32/dirent.h"
+#else
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    #include <dirent.h>
+#endif
+
 #include <stb_wrappers.h>
 
 Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)
@@ -110,4 +121,43 @@ void DebugDrawHull(const apPosf* vertices, int num_vertices, uint8_t* color, con
 
         draw_line((int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y, data, image->width, image->height, image->channels, color);
     }
+}
+
+int IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, const char*), void* ctx)
+{
+    struct dirent* entry = 0;
+    DIR* dir = 0;
+    dir = opendir(dirpath);
+    if (!dir) {
+        return 0;
+    }
+
+    while( (entry = readdir(dir)) )
+    {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        char abs_path[1024];
+        snprintf(abs_path, sizeof(abs_path), "%s/%s", dirpath, entry->d_name);
+
+        struct stat path_stat;
+        stat(abs_path, &path_stat);
+
+        int isdir = S_ISDIR(path_stat.st_mode);
+        if (!isdir)
+            callback(ctx, abs_path);
+
+        if (isdir && recursive) {
+
+            // Make sure the directory still exists (the callback might have removed it!)
+            int should_continue = IterateFiles(abs_path, recursive, callback, ctx);
+            if (!should_continue) {
+                goto cleanup;
+            }
+        }
+    }
+
+cleanup:
+    closedir(dir);
+    return 1;
 }

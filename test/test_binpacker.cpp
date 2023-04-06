@@ -1,8 +1,9 @@
 #include <memory.h>
 #include <stdlib.h> // qsort
 
-#define JC_TEST_USE_DEFAULT_MAIN
+#define JC_TEST_IMPLEMENTATION
 #include <jc_test.h>
+#include <array.h>
 
 extern "C" {
 #include <stb_wrappers.h>
@@ -115,7 +116,7 @@ TEST(PackerBinPack, PackSpineboy) {
     }
 
     SortImages(images, num_images);
-    
+
     apBinPackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
     packer_options.mode = AP_BP_MODE_DEFAULT;
@@ -159,7 +160,7 @@ TEST(PackerBinPack, DefoldAtlas) {
     }
 
     SortImages(images, num_images);
-    
+
     apBinPackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
     packer_options.mode = AP_BP_MODE_DEFAULT;
@@ -187,3 +188,89 @@ TEST(PackerBinPack, DefoldAtlas) {
     }
 }
 */
+
+// /Users/mathiaswesterdahl/work/projects/agulev
+
+static int IsImageSuffix(const char* suffix)
+{
+    return strcmp(suffix, ".png") == 0 || strcmp(suffix, ".PNG") == 0;
+}
+
+static int FileIterator(void* _ctx, const char* path)
+{
+    const char* suffix = strrchr(path, '.');
+    if (!suffix)
+        return 1;
+
+    //printf("Path: %s %s %d\n", path, suffix?suffix:"", IsImageSuffix(suffix));
+
+    if (!IsImageSuffix(suffix))
+        return 1;
+
+    jc::Array<Image*>* images = (jc::Array<Image*>*)_ctx;
+    if (images->Full())
+        images->SetCapacity(images->Capacity() + 32);
+
+    Image* image = LoadImage(path);
+    images->Push(image);
+    return 1;
+}
+
+static int TestStandalone(const char* dir_path, const char* outname)
+{
+    printf("DIR PATH: %s\n", dir_path);
+
+    jc::Array<Image*> images;
+    IterateFiles(dir_path, true, FileIterator, &images);
+
+    if (images.Empty())
+    {
+        printf("Failed to find any images!\n");
+        return 1;
+    }
+
+    printf("Loaded %u images!\n", images.Size());
+
+    SortImages(images.Begin(), images.Size());
+
+    apBinPackOptions packer_options;
+    memset(&packer_options, 0, sizeof(packer_options));
+    packer_options.mode = AP_BP_MODE_DEFAULT;
+    apPacker* packer = apCreateBinPacker(&packer_options);
+
+    apOptions options;
+    apContext* ctx = apCreate(&options, packer);
+
+    for (int i = 0; i < images.Size(); ++i)
+    {
+        Image* image = images[i];
+        apAddImage(ctx, image->path, image->width, image->height, image->channels, image->data);
+    }
+
+    apPackImages(ctx);
+
+    DebugWriteOutput(ctx, outname);
+
+    apDestroy(ctx);
+
+    for (int i = 0; i < images.Size(); ++i)
+    {
+        DestroyImage(images[i]);
+    }
+}
+
+int main(int argc, char **argv)
+{
+    if (argc > 1)
+    {
+        const char* dir_path = argv[1];
+        const char* outname = "standalone";
+        if (argc > 2)
+            outname = argv[2];
+
+        return TestStandalone(dir_path, outname);
+    }
+
+    jc_test_init(&argc, argv);
+    return jc_test_run_all();
+}

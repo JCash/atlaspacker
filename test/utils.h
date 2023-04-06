@@ -22,3 +22,4 @@ void    SortImages(Image** images, int num_images);
 int     DebugWriteOutput(apContext* ctx, const char* pattern);
 void    DebugDrawHull(const apPosf* vertices, int num_vertices, uint8_t* color, const Image* image, uint8_t* data);
 
+int     IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, const char*), void* ctx);
