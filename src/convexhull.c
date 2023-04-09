@@ -16,7 +16,7 @@ typedef struct
 } apConvexHull;
 
 
-static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width, int height)
+static int apConvexHullCalculatePlanes(apConvexHull* hull, uint8_t* image, int width, int height)
 {
     int empty = 1;
 
@@ -24,7 +24,7 @@ static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width
     for (int i = 0; i < num_planes; ++i)
     {
         hull->distances[i] = -1000000.0f;
-        
+
         float angle = i * 2.0f * M_PI / (float)num_planes;
         hull->normals[i].x = cosf(angle);
         hull->normals[i].y = sinf(angle);
@@ -38,26 +38,43 @@ static int apConvexHullSetupPlanes(apConvexHull* hull, uint8_t* image, int width
         {
             if (!image[y * width + x])
                 continue;
-        
+
             empty = 0;
 
-            // project each corner of the texel along the plane normal
-            apPosf corners[4] ={{ x + 0 - center.x, y + 0 - center.y },
-                                { x + 1 - center.x, y + 0 - center.y },
-                                { x + 1 - center.x, y + 1 - center.y },
-                                { x + 0 - center.x, y + 1 - center.y }};
-
+            apPosf pos = { x + 0.5f - center.x, y + 0.5f - center.y };
             for (int p = 0; p < num_planes; ++p)
             {
                 apPosf dir = hull->normals[p];
 
-                for (int c = 0; c < 4; ++c)
-                {
-                    float distance = apMathDot(dir, corners[c]);
-                    if (distance > hull->distances[p])
-                        hull->distances[p] = distance;
-                }
+                float distance = apMathDot(dir, pos);
+                if (distance > hull->distances[p])
+                    hull->distances[p] = distance;
             }
+        }
+    }
+
+    if (!empty)
+    {
+        // At this point, each place is centered at the middle of a texel
+        // but we need it to contain the full texel corners
+
+        apPosf corners[4] ={{ -0.5f, -0.5f },
+                            { +0.5f, -0.5f },
+                            { +0.5f, +0.5f },
+                            { -0.5f, +0.5f }};
+
+        for (int p = 0; p < num_planes; ++p)
+        {
+            apPosf dir = hull->normals[p];
+
+            float max_distance = 0;
+            for (int c = 0; c < 4; ++c)
+            {
+                float distance = apMathDot(dir, corners[c]);
+                if (distance > max_distance)
+                    max_distance = distance;
+            }
+            hull->distances[p] += max_distance;
         }
     }
 
@@ -127,7 +144,7 @@ apPosf* apConvexHullFromImage(int num_planes, uint8_t* image, int width, int hei
     hull.normals = (apPosf*)malloc(sizeof(apPosf)*num_planes);
     hull.distances = (float*)malloc(sizeof(float)*num_planes);
 
-    int valid = apConvexHullSetupPlanes(&hull, image, width, height);
+    int valid = apConvexHullCalculatePlanes(&hull, image, width, height);
     if (!valid)
         return 0;
 
