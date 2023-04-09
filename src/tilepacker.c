@@ -21,7 +21,7 @@ typedef struct apTileImage
     int twidth;         // width in #tiles
     int theight;        // height in #tiles
     int rotation;       // 0, 90, 180, 270
-    apRect rect;        // Contains the coordinates which are set
+    apRect rect;        // The bounding box of the cells that are valid in this image
 
     uint32_t bytecount;
     uint8_t* bytes;     // Each byte represents a tile. 0 means it's not occupied
@@ -200,7 +200,7 @@ static apTileImage* apTilePackerCreateRotatedCopy(const apTileImage* image, int 
         for (int x = 0; x < twidth; ++x)
         {
             apPos outpos = apRotate(x, y, twidth, theight, rotation);
-            
+
             uint8_t* dstrow = &outimage->bytes[outpos.y * outtwidth];
             dstrow[outpos.x] = srcrow[x];
         }
@@ -366,7 +366,7 @@ void apTilePackerCreateTileImageFromTriangles(apPacker* _packer, apImage* _image
                 { x + 1, y + 1 },
                 { x + 0, y + 1 }
             };
-            
+
             tile_image->bytes[y*twidth+x] = 0;
 
             //int debug2 = debug && (x == 9 && (y==0 || y == (theight-1)));
@@ -478,14 +478,18 @@ static int apTilePackerFitImageAtPos(apTileImage* page_image, int px, int py, in
     return 1;
 }
 
-static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apPos* pos)
+
+static int apTilePackerFitImageInRect(apTileImage* page_image, apTileImage* image, apRect* area, apPos* pos)
 {
-    int pwidth = page_image->twidth;
-    int pheight = page_image->theight;
-    for (int dy = 0; dy < pheight; ++dy)
+    int px = area->pos.x;
+    int py = area->pos.y;
+    int pwidth = area->pos.x + area->size.width;
+    int pheight = area->pos.y + area->size.height;
+
+    for (int dy = py; dy < pheight; ++dy)
     {
         int pheight_left = pheight - dy;
-        for (int dx = 0; dx < pwidth; ++dx)
+        for (int dx = px; dx < pwidth; ++dx)
         {
             int pwidth_left = pwidth - dx;
             int fit = apTilePackerFitImageAtPos(page_image, dx, dy, pwidth_left, pheight_left, image, 0);
@@ -493,7 +497,7 @@ static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apP
             if (fit) {
                 // It fit, so now we write it to the page
                 apTilePackerFitImageAtPos(page_image, dx, dy, pwidth_left, pheight_left, image, 1);
-                
+
                 pos->x = dx - image->rect.pos.x;
                 pos->y = dy - image->rect.pos.y;
                 return 1;
@@ -503,13 +507,48 @@ static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apP
     return 0;
 }
 
-static int apTilePackerPackImage(apTileImage* page_image, apTilePackerImage* image, int allow_rotate)
+static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apRect* prio_area, apPos* pos)
+{
+    apRect rect;
+    rect.pos.x = 0;
+    rect.pos.y = 0;
+    rect.size.width = page_image->twidth;
+    rect.size.height = page_image->theight;
+
+    // If we have a prio area, it's the area of the page image before the last resize.
+    // By searching this area first, we may fit smaller images in this area first and thus save more coherent space in the
+    // lastly allocated page image
+    if (prio_area)
+    {
+        int r = apTilePackerFitImageInRect(page_image, image, prio_area, pos);
+        if (r)
+            return 1;
+
+        // Make a rect of the rest of the area
+        // The prio area is assumed to extend fully in one of the directions
+        if (prio_area->size.height == rect.size.height)
+        {
+            rect.pos.x = prio_area->size.width;
+            rect.size.width = page_image->twidth - prio_area->size.width;
+        }
+        else
+        {
+            rect.pos.y = prio_area->size.height;
+            rect.size.height = page_image->theight - prio_area->size.height;
+        }
+    }
+
+    return apTilePackerFitImageInRect(page_image, image, &rect, pos);
+}
+
+static int apTilePackerPackImage(apTileImage* page_image, apTilePackerImage* image, apRect* prio_area, int allow_rotate)
 {
     //printf("Packing image %s\n", image->super.path);
 
+    // Try the rotated variations variation of the image
     for (int i = 0; i < image->num_images; ++i)
     {
-        if (apTilePackerFitImage(page_image, image->images[i], &image->pos))
+        if (apTilePackerFitImage(page_image, image->images[i], prio_area, &image->pos))
         {
             return i;
         }
@@ -566,6 +605,10 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
         apTilePackerCreateRotatedTileImages(packer, image);
     }
 
+    // In order to fill in all tiny gaps, we keep the previous area in the page image
+    apRect prio_area = { {0, 0}, {0, 0} };
+    apRect* p_prio_area = 0;
+
     int tile_size = packer->options.tile_size;
     int allow_rotate = !packer->options.no_rotate;
     for (int i = 0; i < ctx->num_images; ++i)
@@ -577,12 +620,22 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
             int width = apNextPowerOfTwo(image->super.dimensions.width);
             int height = apNextPowerOfTwo(image->super.dimensions.width);
             page->image = apTilePackerCreateTileImage(width, height, tile_size);
+
+            prio_area.pos.x = 0;
+            prio_area.pos.y = 0;
+            prio_area.size.width = width/tile_size;
+            prio_area.size.height = height/tile_size;
             printf("Creating page image: %d x %d\n", width, height);
         }
 
-        int image_index = apTilePackerPackImage(page->image, image, allow_rotate);
+        int image_index = apTilePackerPackImage(page->image, image, p_prio_area, allow_rotate);
         if (image_index == -1)
         {
+            // Use the previous area as the first search area
+            prio_area.size.width = page->image->twidth;
+            prio_area.size.height = page->image->theight;
+            p_prio_area = &prio_area;
+
             // grow the page, or find a next page that will fit this image
             int width = page->image->twidth * tile_size;
             int height = page->image->theight * tile_size;
@@ -591,7 +644,7 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
             else
                 height *= 2;
             apTilePackerGrowTileImage(page->image, width, height, tile_size);
-            printf("Growing page to %d x %d\n", width, height);
+            printf("Growing page image to %d x %d\n", width, height);
 
             // TODO: Handle max size according to user settings
             // if (width > 16384 || height > 16384)
@@ -612,7 +665,7 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
         image->super.rotation = fit_image->rotation;
 
         //printf("Image %s:%d (i:%d) fit at pos %d %d\n", image->super.path, image->super.rotation, image_index, image->pos.x, image->pos.y);
-            
+
         //DebugPrintTileImage(page->image);
     }
 }

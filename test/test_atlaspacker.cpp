@@ -74,6 +74,5 @@ TEST(AtlasPacker, OverlapTest)
 
             ASSERT_EQ(expected[y*3+x], apOverlapTest2D(triangle1, 3, boxsmall, 4));
         }
-    }    
+    }
 }
-

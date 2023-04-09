@@ -189,8 +189,6 @@ TEST(PackerBinPack, DefoldAtlas) {
 }
 */
 
-// /Users/mathiaswesterdahl/work/projects/agulev
-
 static int IsImageSuffix(const char* suffix)
 {
     return strcmp(suffix, ".png") == 0 || strcmp(suffix, ".PNG") == 0;
@@ -220,8 +218,12 @@ static int TestStandalone(const char* dir_path, const char* outname)
 {
     printf("DIR PATH: %s\n", dir_path);
 
+    uint64_t tstart = GetTime();
+
     jc::Array<Image*> images;
     IterateFiles(dir_path, true, FileIterator, &images);
+
+    uint64_t tend = GetTime();
 
     if (images.Empty())
     {
@@ -229,9 +231,11 @@ static int TestStandalone(const char* dir_path, const char* outname)
         return 1;
     }
 
-    printf("Loaded %u images!\n", images.Size());
+    printf("Loaded %u images in %.2f ms\n", (uint32_t)images.Size(), (tend - tstart)/1000.0f);
 
     SortImages(images.Begin(), images.Size());
+
+    tstart = GetTime();
 
     apBinPackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
@@ -249,7 +253,16 @@ static int TestStandalone(const char* dir_path, const char* outname)
 
     apPackImages(ctx);
 
+    tend = GetTime();
+
+    printf("Packing %u images took %.2f ms\n", (uint32_t)images.Size(), (tend - tstart)/1000.0f);
+
+    tstart = GetTime();
+
     DebugWriteOutput(ctx, outname);
+
+    tend = GetTime();
+    printf("Writing packed image took %.2f ms\n", (tend-tstart)/1000.0f);
 
     apDestroy(ctx);
 

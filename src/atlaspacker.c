@@ -112,6 +112,7 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
 
     //printf("rendering page %d at %d x %d\n", page_index, w, h);
 
+// DEBUG BACKGROUND RENDERING
     int tile_size = 16;
     for (int y = 0; y < h; ++y)
     {
@@ -123,14 +124,16 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
 
             // uint8_t color_odd[4] = {255,255,255,128};
             // uint8_t color_even[4] = {0,0,0,128};
-            uint8_t color_odd[4] = {32,32,32,255};
-            uint8_t color_even[4] = {16,16,16,255};
+            // uint8_t color_odd[4] = {32,32,32,255};
+            // uint8_t color_even[4] = {16,16,16,255};
+            uint8_t color_odd[4] = {64,96,64,255};
+            uint8_t color_even[4] = {32,64,32,255};
 
             uint8_t* color = color_even;
 
             if (odd)
                 color = color_odd;
-                
+
             for (int i = 0; i < c; ++i)
                 output[y * (w*c) + (x*c) + i ] = color[i];
         }
@@ -143,7 +146,7 @@ uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, i
         apImage* image = ctx->images[i];
         if (image->page != page_index)
             continue;
-        
+
         //printf("rendering image %s:%d at %d x %d\n", image->path, image->rotation, image->placement.pos.x, image->placement.pos.y);
 
         apCopyRGBA(output, w, h, c,
@@ -204,7 +207,7 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
 
             for (int c = 0; c < dest_channels; ++c)
                 dest[dest_index+c] = color[c];
-            
+
             if (color[3] > 0 && color[3] < 255)
             {
                 uint32_t r = dest[dest_index+0] + 48;
@@ -232,7 +235,7 @@ uint32_t apNextPowerOfTwo(uint32_t v)
     return v;
 }
 
-static int apTexelNonZero(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int x, int y, int kernelsize)
+static int apTexelNonZeroKernel(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int x, int y, int kernelsize)
 {
     int start_x = x < kernelsize ? 0 : x - kernelsize;
     int start_y = y < kernelsize ? 0 : y - kernelsize;
@@ -246,18 +249,29 @@ static int apTexelNonZero(const uint8_t* image, uint32_t width, uint32_t height,
             uint8_t color[] = { 255, 255, 255, 255 };
 
             int index = yy*width*num_channels + xx*num_channels;
+            uint8_t bits = 0;
             for (int c = 0; c < num_channels; ++c)
+            {
                 color[c] = image[index+c];
+                bits |= color[c];
+            }
 
-            if (color[3] == 0)
+            if (num_channels == 4 && color[3] == 0)
                 continue; // completely transparent
-            if (color[0]|color[1]|color[2])
+
+            if (bits)
             {
                 return 1; // non zero
             }
         }
     }
     return 0;
+}
+
+static int apTexelAlphaNonZero(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int x, int y)
+{
+    int index = y*width*num_channels + x*num_channels;
+    return image[index+3] > 0 ? 1 : 0;
 }
 
 apPosf apMathNormalize(apPosf a)
@@ -356,14 +370,26 @@ uint8_t* apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height
     uint8_t* out = (uint8_t*)malloc(width*height);
     memset(out, 0, width*height);
 
-    for (int y = 0; y < height; ++y)
+    if (dilate)
     {
-        for (int x = 0; x < width; ++x)
+        for (int y = 0; y < height; ++y)
         {
-            int value = apTexelNonZero(image, width, height, num_channels, x, y, dilate);
-            out[y*width + x] = value*255;
-        }    
+            for (int x = 0; x < width; ++x)
+            {
+                int value = apTexelNonZeroKernel(image, width, height, num_channels, x, y, dilate);
+                out[y*width + x] = value*255;
+            }
+        }
+    }
+    else {
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                int value = apTexelAlphaNonZero(image, width, height, num_channels, x, y);
+                out[y*width + x] = value*255;
+            }
+        }
     }
     return out;
 }
-

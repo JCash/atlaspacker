@@ -1,7 +1,8 @@
 #include <memory.h>
 
-#define JC_TEST_USE_DEFAULT_MAIN
+#define JC_TEST_IMPLEMENTATION
 #include <jc_test.h>
+#include <array.h>
 
 extern "C" {
 #include <stb_wrappers.h>
@@ -67,7 +68,7 @@ TEST(PackerTilePack, OverlapTest)
 
             ASSERT_EQ(expected[y*3+x], apOverlapTest2D(triangle1, 3, boxsmall, 4));
         }
-    }    
+    }
 }
 
 TEST(PackerTilePack, PackSmall) {
@@ -161,7 +162,7 @@ TEST(PackerTilePack, PackSpineboyNoVertices) {
     }
 
     SortImages(images, num_images);
-    
+
     apTilePackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
     apPacker* packer = apTilePackerCreate(&packer_options);
@@ -199,8 +200,10 @@ TEST(PackerTilePack, PackSpineboyVertices) {
         images[i] = image;
     }
 
+    printf("Loaded %u images\n", num_images);
+
     SortImages(images, num_images);
-    
+
     apTilePackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
     apPacker* packer = apTilePackerCreate(&packer_options);
@@ -216,30 +219,30 @@ TEST(PackerTilePack, PackSpineboyVertices) {
 
         int num_planes = 8;
 
-    int debug = i == 0;
+    //int debug = i == 0;
 
         int dilate = 0;
         uint8_t* hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
-        
-    if (debug)
-    {
-        char path[64];
-        snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
-        int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
-        if (result)
-            printf("Wrote %s at %d x %d\n", path, image->width, image->height);
-    }
-    
+
+    // if (debug)
+    // {
+    //     char path[64];
+    //     snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+    //     int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+    //     if (result)
+    //         printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+    // }
+
         int num_vertices;
         apPosf* vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
 
-    if (debug)
-    {
-        // for(int v = 0; v < num_vertices; ++v)
-        // {
-        //     printf("v%d: %f, %f\n", v, vertices[v].x, vertices[v].y);
-        // }
-    }
+    // if (debug)
+    // {
+    //     // for(int v = 0; v < num_vertices; ++v)
+    //     // {
+    //     //     printf("v%d: %f, %f\n", v, vertices[v].x, vertices[v].y);
+    //     // }
+    // }
 
         // Triangulate a convex hull
         int num_triangles = num_vertices - 2;
@@ -253,19 +256,19 @@ TEST(PackerTilePack, PackSpineboyVertices) {
 
         apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
 
-    if (debug)
-    {
-        int tile_size = apTilePackerGetTileSize(packer);
-        uint8_t* dbgimage = apTilePackerDebugCreateImageFromTileImage(apimage, 0, tile_size);
-        
-        char path[64];
-        snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "tileimage", i);
-        int result = STBI_write_tga(path, image->width, image->height, 1, dbgimage);
-        if (result)
-            printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+    // if (debug)
+    // {
+    //     int tile_size = apTilePackerGetTileSize(packer);
+    //     uint8_t* dbgimage = apTilePackerDebugCreateImageFromTileImage(apimage, 0, tile_size);
 
-        free((void*)dbgimage);
-    }
+    //     char path[64];
+    //     snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "tileimage", i);
+    //     int result = STBI_write_tga(path, image->width, image->height, 1, dbgimage);
+    //     if (result)
+    //         printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+    //     free((void*)dbgimage);
+    // }
 
         //uint8_t color[] = {127, 64, 0, 255};
         uint8_t color[] = {255,255,255, 255};
@@ -285,4 +288,215 @@ TEST(PackerTilePack, PackSpineboyVertices) {
     {
         DestroyImage(images[i]);
     }
+}
+
+static int IsImageSuffix(const char* suffix)
+{
+    return strcmp(suffix, ".png") == 0 || strcmp(suffix, ".PNG") == 0;
+}
+
+static int FileIterator(void* _ctx, const char* path)
+{
+    const char* suffix = strrchr(path, '.');
+    if (!suffix)
+        return 1;
+
+    //printf("Path: %s %s %d\n", path, suffix?suffix:"", IsImageSuffix(suffix));
+
+    if (!IsImageSuffix(suffix))
+        return 1;
+
+    if (strstr(path, "spineboy.png") != 0)
+        return 1;
+    if (strstr(path, "spineboy_2x.png") != 0)
+        return 1;
+
+    //  if (strcmp(path, "/Users/mathiaswesterdahl/work/projects/agulev/BigAtlases/main/images/tile_0484 copy.png") != 0)
+    //     return 1;
+
+    jc::Array<Image*>* images = (jc::Array<Image*>*)_ctx;
+    if (images->Full())
+        images->SetCapacity(images->Capacity() + 32);
+
+    Image* image = LoadImage(path);
+    images->Push(image);
+    return 1;
+}
+
+static int TestStandalone(const char* dir_path, const char* outname)
+{
+    printf("DIR PATH: %s\n", dir_path);
+
+    uint64_t tstart = GetTime();
+    jc::Array<Image*> images;
+    IterateFiles(dir_path, true, FileIterator, &images);
+    uint64_t tend = GetTime();
+
+    if (images.Empty())
+    {
+        printf("Failed to find any images!\n");
+        return 1;
+    }
+
+    int num_images = (int)images.Size();
+    printf("Loaded %d images in %.2f ms\n", num_images, (tend - tstart)/1000.0f);
+
+    SortImages(images.Begin(), num_images);
+
+    tstart = GetTime();
+    apTilePackOptions packer_options;
+    memset(&packer_options, 0, sizeof(packer_options));
+    apPacker* packer = apTilePackerCreate(&packer_options);
+
+    apOptions options;
+    apContext* ctx = apCreate(&options, packer);
+
+    uint64_t t_add_images = 0;
+    uint64_t t_create_hull_images = 0;
+    uint64_t t_convex_hulls = 0;
+    uint64_t t_tile_image_from_triangles = 0;
+
+    for (int i = 0; i < num_images; ++i)
+    {
+        Image* image = images[(uint32_t)i];
+
+        uint64_t tsubstart = GetTime();
+
+        //printf("Adding image: %s, %d x %d  \t\tarea: %d\n", image->path, image->width, image->height, image->width * image->height);
+        apImage* apimage = apAddImage(ctx, image->path, image->width, image->height, image->channels, image->data);
+
+        t_add_images += (GetTime() - tsubstart);
+
+        int num_planes = 8;
+
+    //int debug = i == 0;
+
+        tsubstart = GetTime();
+
+        int dilate = 0;
+        uint8_t* hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
+
+        t_create_hull_images += (GetTime() - tsubstart);
+
+    // if (debug)
+    // {
+    //     char path[64];
+    //     snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+    //     int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+    //     if (result)
+    //         printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+    // }
+
+        tsubstart = GetTime();
+
+        int num_vertices;
+        apPosf* vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
+        if (!vertices)
+        {
+            printf("Failed to generate hull for %s\n", image->path);
+
+            char path[64];
+            snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+            int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+            if (result)
+                printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+            return 1;
+        }
+
+        t_convex_hulls += (GetTime() - tsubstart);
+
+    // if (debug)
+    // {
+    //     // for(int v = 0; v < num_vertices; ++v)
+    //     // {
+    //     //     printf("v%d: %f, %f\n", v, vertices[v].x, vertices[v].y);
+    //     // }
+    // }
+
+        tsubstart = GetTime();
+
+        // Triangulate a convex hull
+        int num_triangles = num_vertices - 2;
+        apPosf* triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
+        for (int t = 0; t < num_triangles; ++t)
+        {
+            triangles[t*3+0] = vertices[0];
+            triangles[t*3+1] = vertices[1+t+0];
+            triangles[t*3+2] = vertices[1+t+1];
+        }
+
+        apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
+
+        t_tile_image_from_triangles += (GetTime() - tsubstart);
+
+    // if (debug)
+    // {
+    //     int tile_size = apTilePackerGetTileSize(packer);
+    //     uint8_t* dbgimage = apTilePackerDebugCreateImageFromTileImage(apimage, 0, tile_size);
+
+    //     char path[64];
+    //     snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "tileimage", i);
+    //     int result = STBI_write_tga(path, image->width, image->height, 1, dbgimage);
+    //     if (result)
+    //         printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+    //     free((void*)dbgimage);
+    // }
+
+        free((void*)triangles);
+        free((void*)vertices);
+        free((void*)hull_image);
+    }
+
+    tend = GetTime();
+    printf("Creating atlas images took %.2f ms, where\n", (tend-tstart)/1000.0f);
+
+    printf("   Add images       %.2f ms\n", t_add_images/1000.0f);
+    printf("   Hull images      %.2f ms\n", t_create_hull_images/1000.0f);
+    printf("   Create hulls     %.2f ms\n", t_convex_hulls/1000.0f);
+    printf("   Tiles from tris  %.2f ms\n", t_tile_image_from_triangles/1000.0f);
+
+    // uint64_t t_add_images = 0;
+    // uint64_t t_create_hull_images = 0;
+    // uint64_t t_convex_hulls = 0;
+    // uint64_t t_tile_image_from_triangles = 0;
+
+    tstart = GetTime();
+
+    apPackImages(ctx);
+
+    tend = GetTime();
+    printf("Packing atlas images took %.2f ms\n", (tend-tstart)/1000.0f);
+
+    tstart = GetTime();
+
+    DebugWriteOutput(ctx, outname);
+
+    tend = GetTime();
+    printf("Writing packed image took %.2f ms\n", (tend-tstart)/1000.0f);
+
+    apDestroy(ctx);
+
+    for (uint32_t i = 0; i < (uint32_t)num_images; ++i)
+    {
+        DestroyImage(images[i]);
+    }
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc > 1)
+    {
+        const char* dir_path = argv[1];
+        const char* outname = "standalone";
+        if (argc > 2)
+            outname = argv[2];
+
+        return TestStandalone(dir_path, outname);
+    }
+
+    jc_test_init(&argc, argv);
+    return jc_test_run_all();
 }

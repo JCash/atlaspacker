@@ -64,12 +64,13 @@ Image* LoadImage(const char* path)
         printf("Failed to load %s\n", path);
         return 0;
     }
-    image->path = path;
+    image->path = strdup(path);
     return image;
 }
 
 void DestroyImage(Image* image)
 {
+    free((void*)image->path);
     free((void*)image->data);
     free((void*)image);
 }
