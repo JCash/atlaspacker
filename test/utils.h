@@ -14,6 +14,8 @@ typedef struct _Image
 } Image;
 #pragma options align=reset
 
+// Gets time in micro seconds
+uint64_t GetTime();
 
 Image*  CreateImage(const char* path, uint32_t color, int w, int h, int c);
 Image*  LoadImage(const char* path);
