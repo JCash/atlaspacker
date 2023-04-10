@@ -1,5 +1,6 @@
 // https://github.com/JCash/atlaspacker
-// @2021 Mathias Westerdahl
+// License: MIT
+// @2021-@2023 Mathias Westerdahl
 
 /////////////////////////////////////////////////////////
 #pragma once

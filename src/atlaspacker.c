@@ -1,3 +1,7 @@
+// https://github.com/JCash/atlaspacker
+// License: MIT
+// @2021-@2023 Mathias Westerdahl
+
 #include <atlaspacker/atlaspacker.h>
 #include <atlaspacker/binpacker.h>
 

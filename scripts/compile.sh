@@ -36,29 +36,37 @@ echo Using STDCVERSION: -std=$STDCVERSION
 
 
 if [ "$CXX" == "" ]; then
-    CXX=clang++
+    CXX=$(which clang++)
 fi
 echo Using CXX=$CXX  \"$($CXX --version | grep -e "version")\"
 
 if [ "$CC" == "" ]; then
-    CC=clang
+    CC=$(which clang)
 fi
 echo Using CC=$CC  \"$($CC --version | grep -e "version")\"
 
 if [ "$AR" == "" ]; then
-    AR=ar
+    AR=$(dirname ${CXX})/ar
 fi
 echo Using AR=$AR
 
 if [ "$LD" == "" ]; then
-    LD=clang++
+    LD=${CXX}
 fi
 echo Using LD=$LD
 
-if [ "$ARCH" == "" ]; then
-    ARCH=-m64
+if [ "${ARCH}" == "" ]; then
+    if [ "Darwin" == "$(uname)" ]; then
+        if [ "arm64" == "$(arch)" ]; then
+            ARCH="-arch arm64"
+        else
+            ARCH="-arch x86_64"
+        fi
+    else
+        ARCH="-m64"
+    fi
 fi
-echo Using ARCH=$ARCH
+echo Using ARCH=${ARCH}
 
 CFLAGS="$CFLAGS -g -std=$STDCVERSION -Wall -Iinclude -Isrc -I. -Iexternal -Itest $ASAN $PREPROCESS"
 CXXFLAGS="$CXXFLAGS -g -std=$STDCXXVERSION -Wall -fno-exceptions -Wno-old-style-cast -Wno-double-promotion -Iinclude -Isrc -I. -Iexternal -Itest $ASAN $PREPROCESS"
@@ -84,7 +92,7 @@ function compile_cpp_file {
     local basename=$(basename $name)
     local prefix=$2
     echo "$basename"
-    run_cmd ${CXX} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY $ARCH $CXXFLAGS -c ${name}
+    run_cmd ${CXX} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY ${ARCH} $CXXFLAGS -c ${name}
 }
 
 function compile_c_file {
@@ -92,7 +100,7 @@ function compile_c_file {
     local basename=$(basename $name)
     local prefix=$2
     echo "$basename"
-    run_cmd ${CC} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY $ARCH $CFLAGS -c ${name}
+    run_cmd ${CC} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY ${ARCH} $CFLAGS -c ${name}
 }
 
 function compile_lib {
@@ -129,5 +137,5 @@ function link_exe {
         libraries="${libraries} ${libflag}${library}"
     done
 
-    run_cmd ${LD} -o ${BUILD_DIR}/${target} ${OPT} ${LDFLAGS} ${libraries}
+    run_cmd ${LD} -o ${BUILD_DIR}/${target} ${OPT} ${LDFLAGS} ${ARCH} ${libraries}
 }
