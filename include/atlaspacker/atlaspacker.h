@@ -13,7 +13,7 @@ typedef struct {
     int x, y;
 } apPos;
 
-typedef struct
+typedef struct apPosf
 {
     float x, y;
 } apPosf;

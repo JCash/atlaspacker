@@ -141,6 +141,28 @@ void DebugDrawHull(const apPosf* vertices, int num_vertices, uint8_t* color, con
     }
 }
 
+void DebugDrawTriangles(const apPosf* triangles, int num_triangles, uint8_t* color, const Image* image, uint8_t* data)
+{
+    for (int i = 0; i < num_triangles; ++i, ++triangles)
+    {
+        apPosf p0 = triangles[0];
+        apPosf p1 = triangles[1];
+        apPosf p2 = triangles[2];
+
+        p0.x = (p0.x + 0.5f) * (float)image->width * 0.999f;
+        p0.y = (p0.y + 0.5f) * (float)image->height * 0.999f;
+        p1.x = (p1.x + 0.5f) * (float)image->width * 0.999f;
+        p1.y = (p1.y + 0.5f) * (float)image->height * 0.999f;
+        p2.x = (p2.x + 0.5f) * (float)image->width * 0.999f;
+        p2.y = (p2.y + 0.5f) * (float)image->height * 0.999f;
+
+        draw_line((int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y, data, image->width, image->height, image->channels, color);
+        draw_line((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, data, image->width, image->height, image->channels, color);
+        draw_line((int)p2.x, (int)p2.y, (int)p0.x, (int)p0.y, data, image->width, image->height, image->channels, color);
+    }
+}
+
+
 int IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, const char*), void* ctx)
 {
     struct dirent* entry = 0;

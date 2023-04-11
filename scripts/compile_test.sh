@@ -8,6 +8,7 @@ source ${SCRIPTDIR}/compile.sh
 PREFIX=testpacker
 
 export CFLAGS="${CFLAGS} -DJC_TEST_USE_COLORS"
+export CXXFLAGS="${CXXFLAGS} -DJC_TEST_USE_COLORS"
 
 NAME=utils
 compile_c_file test/render.c test${NAME}
@@ -23,6 +24,11 @@ compile_lib test${NAME} test${NAME}
 link_exe test_${NAME} test${NAME} testutils stb atlaspacker
 
 NAME=convexhull
+compile_cpp_file test/test_${NAME}.cpp test${NAME}
+compile_lib test${NAME} test${NAME}
+link_exe test_${NAME} test${NAME} testutils stb atlaspacker
+
+NAME=contour
 compile_cpp_file test/test_${NAME}.cpp test${NAME}
 compile_lib test${NAME} test${NAME}
 link_exe test_${NAME} test${NAME} testutils stb atlaspacker

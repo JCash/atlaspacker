@@ -29,6 +29,8 @@ void      apTilePackerCreateTileImageFromTriangles(apPacker* packer, apImage* im
 // Creates a grayscale image of same dimensions as the image (width*height*1)
 uint8_t*  apTilePackerDebugCreateImageFromTileImage(apImage* image, int index, int tile_size);
 
+uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, int height, int channels, uint8_t* src_image, int* twidth, int* theight);
+
 /*
 
 # Images

@@ -143,26 +143,37 @@ static void apTilePackerGrowTileImage(apTileImage* image, int width, int height,
     }
 }
 
-static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_size,
-                                int width, int height, int channels, const uint8_t* data)
+void apTilePackerConvertImageToTiles(uint32_t tile_size, int alphathreshold,
+                                            int width, int height, int channels, const uint8_t* src_image,
+                                            int twidth, int theight, uint8_t* timage)
 {
-    int twidth = image->twidth;
-
-    // Calculate the bounding rect
-    int rminx = image->twidth + 1;
-    int rminy = image->theight + 1;
-    int rmaxx = -1;
-    int rmaxy = -1;
-
-    // x/y are in original image space
+    (void)theight;
     for (int y = 0, ty = 0; y < height; y += tile_size, ++ty)
     {
         for (int x = 0, tx = 0; x < width; x += tile_size, ++tx)
         {
             // Check area in image
-            int alphathreshold = 8; // TODO: Create a setting for this!
-            int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, data);
-            image->bytes[ty*twidth+tx] = nonempty;
+            int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, src_image);
+            timage[ty*twidth+tx] = nonempty;
+        }
+    }
+}
+
+static void apTilePackerCalcImageRect(apTileImage* image)
+{
+    int twidth = image->twidth;
+    int theight = image->theight;
+
+    int rminx = twidth + 1;
+    int rminy = theight + 1;
+    int rmaxx = -1;
+    int rmaxy = -1;
+
+    for (int ty = 0; ty < theight; ++ty)
+    {
+        for (int tx = 0; tx < twidth; ++tx)
+        {
+            uint8_t nonempty = image->bytes[ty*twidth+tx];
             if (nonempty)
             {
                 rminx = apMathMin(rminx, tx);
@@ -177,9 +188,60 @@ static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_
     image->rect.pos.y = rminy;
     image->rect.size.width = rmaxx - rminx + 1;
     image->rect.size.height = rmaxy - rminy + 1;
+}
 
+static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_size,
+                                int width, int height, int channels, const uint8_t* data)
+{
+    //int twidth = image->twidth;
+
+    // Calculate the bounding rect
+    // int rminx = image->twidth + 1;
+    // int rminy = image->theight + 1;
+    // int rmaxx = -1;
+    // int rmaxy = -1;
+
+    int alphathreshold = 8; // TODO: Create a setting for this!
+
+    apTilePackerConvertImageToTiles(tile_size, alphathreshold, width, height, channels, data, image->twidth, image->theight, image->bytes);
+
+    // x/y are in original image space
+    // for (int y = 0, ty = 0; y < height; y += tile_size, ++ty)
+    // {
+    //     for (int x = 0, tx = 0; x < width; x += tile_size, ++tx)
+    //     {
+    //         // Check area in image
+    //         int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, data);
+    //         image->bytes[ty*twidth+tx] = nonempty;
+    //         if (nonempty)
+    //         {
+    //             rminx = apMathMin(rminx, tx);
+    //             rminy = apMathMin(rminy, ty);
+    //             rmaxx = apMathMax(rmaxx, tx);
+    //             rmaxy = apMathMax(rmaxy, ty);
+    //         }
+    //     }
+    // }
+
+    // image->rect.pos.x = rminx;
+    // image->rect.pos.y = rminy;
+    // image->rect.size.width = rmaxx - rminx + 1;
+    // image->rect.size.height = rmaxy - rminy + 1;
+
+    apTilePackerCalcImageRect(image);
     // printf("IMAGE RECT:\n");
     // printf("  x/y: %d %d  w/h: %d %d\n", image->rect.pos.x, image->rect.pos.y, image->rect.size.width, image->rect.size.height);
+}
+
+uint8_t* apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, int height, int channels, uint8_t* src_image, int* twidth, int* theight)
+{
+    *twidth = apMathRoundUp(width, tile_size) / tile_size;
+    *theight = apMathRoundUp(height, tile_size) / tile_size;
+    uint8_t* timage = (uint8_t*)malloc(*twidth * *theight);
+
+    int alphathreshold = 8; // TODO: Create a setting for this!
+    apTilePackerConvertImageToTiles(tile_size, alphathreshold, width, height, channels, src_image, *twidth, *theight, timage);
+    return timage;
 }
 
 
@@ -225,23 +287,23 @@ static apTileImage* apTilePackerCreateRotatedCopy(const apTileImage* image, int 
 }
 
 
-static void DebugPrintTileImage(apTileImage* image)
-{
-    int twidth = image->twidth;
-    printf("IMAGE:\n");
-    for (int y = 0; y < image->theight; ++y)
-    {
-        printf("    ");
-        for (int x = 0; x < twidth; ++x)
-        {
-            printf("%d", image->bytes[y*twidth]?1:0);
-            if ((x%8) == 7)
-                printf(" ");
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
+// static void DebugPrintTileImage(apTileImage* image)
+// {
+//     int twidth = image->twidth;
+//     printf("IMAGE:\n");
+//     for (int y = 0; y < image->theight; ++y)
+//     {
+//         printf("    ");
+//         for (int x = 0; x < twidth; ++x)
+//         {
+//             printf("%d", image->bytes[y*twidth]?1:0);
+//             if ((x%8) == 7)
+//                 printf(" ");
+//         }
+//         printf("\n");
+//     }
+//     printf("\n");
+// }
 
 static void apTilePackerCreateRotatedTileImages(apTilePacker* packer, apTilePackerImage* image)
 {
