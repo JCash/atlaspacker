@@ -346,6 +346,9 @@ static int TestStandalone(const char* dir_path, const char* outname)
     tstart = GetTime();
     apTilePackOptions packer_options;
     memset(&packer_options, 0, sizeof(packer_options));
+
+    packer_options.tile_size = 16; // the default
+
     apPacker* packer = apTilePackerCreate(&packer_options);
 
     apOptions options;
@@ -356,6 +359,7 @@ static int TestStandalone(const char* dir_path, const char* outname)
     uint64_t t_convex_hulls = 0;
     uint64_t t_tile_image_from_triangles = 0;
 
+    int mode = 1; // 0: convex hull, 1: boxes
     for (int i = 0; i < num_images; ++i)
     {
         Image* image = images[(uint32_t)i];
@@ -369,14 +373,86 @@ static int TestStandalone(const char* dir_path, const char* outname)
 
         int num_planes = 8;
 
-    //int debug = i == 0;
+    int debug = i == 0;
+    //int debug = 0;
 
-        tsubstart = GetTime();
+        uint8_t* hull_image = 0;
 
-        int dilate = 0;
-        uint8_t* hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
+        int num_vertices = 0;
+        apPosf* vertices = 0;
 
-        t_create_hull_images += (GetTime() - tsubstart);
+        int num_triangles = 0;
+        apPosf* triangles = 0;
+
+        if (mode == 0)
+        {
+            tsubstart = GetTime();
+
+            int dilate = 0;
+            hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
+
+            t_create_hull_images += (GetTime() - tsubstart);
+
+            tsubstart = GetTime();
+
+            vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
+            if (!vertices)
+            {
+                printf("Failed to generate hull for %s\n", image->path);
+
+                char path[64];
+                snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+                int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+                if (result)
+                    printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+                return 1;
+            }
+
+            t_convex_hulls += (GetTime() - tsubstart);
+
+            // Triangulate a convex hull
+            num_triangles = num_vertices - 2;
+            triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
+            for (int t = 0; t < num_triangles; ++t)
+            {
+                triangles[t*3+0] = vertices[0];
+                triangles[t*3+1] = vertices[1+t+0];
+                triangles[t*3+2] = vertices[1+t+1];
+            }
+
+            tsubstart = GetTime();
+
+            apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
+
+            t_tile_image_from_triangles += (GetTime() - tsubstart);
+
+        }
+        else
+        {
+            int tile_size = 16;
+            int twidth = 0;
+            int theight = 0;
+            uint8_t* timage = apTilePackerCreateTileImageFromImage(tile_size, image->width, image->height, image->channels, image->data, &twidth, &theight);
+
+            tsubstart = GetTime();
+
+            triangles = apHullFromImage(timage, twidth, theight, &num_vertices);
+            num_triangles = num_vertices / 3;
+
+            apTilePackerSetTileImage(packer, apimage, twidth, theight, timage);
+
+            t_convex_hulls += (GetTime() - tsubstart);
+        }
+
+        if (debug)
+        {
+            // printf("MODE: %d\n", mode);
+            // for (int t = 0; t < num_triangles; ++t)
+            // {
+            //     printf("  t: %.2f, %.2f\n", triangles[t].x, triangles[t].y);
+            // }
+        }
 
     // if (debug)
     // {
@@ -387,25 +463,6 @@ static int TestStandalone(const char* dir_path, const char* outname)
     //         printf("Wrote %s at %d x %d\n", path, image->width, image->height);
     // }
 
-        tsubstart = GetTime();
-
-        int num_vertices;
-        apPosf* vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
-        if (!vertices)
-        {
-            printf("Failed to generate hull for %s\n", image->path);
-
-            char path[64];
-            snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
-            int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
-            if (result)
-                printf("Wrote %s at %d x %d\n", path, image->width, image->height);
-
-            return 1;
-        }
-
-        t_convex_hulls += (GetTime() - tsubstart);
-
     // if (debug)
     // {
     //     // for(int v = 0; v < num_vertices; ++v)
@@ -413,22 +470,6 @@ static int TestStandalone(const char* dir_path, const char* outname)
     //     //     printf("v%d: %f, %f\n", v, vertices[v].x, vertices[v].y);
     //     // }
     // }
-
-        tsubstart = GetTime();
-
-        // Triangulate a convex hull
-        int num_triangles = num_vertices - 2;
-        apPosf* triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
-        for (int t = 0; t < num_triangles; ++t)
-        {
-            triangles[t*3+0] = vertices[0];
-            triangles[t*3+1] = vertices[1+t+0];
-            triangles[t*3+2] = vertices[1+t+1];
-        }
-
-        apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
-
-        t_tile_image_from_triangles += (GetTime() - tsubstart);
 
     // if (debug)
     // {

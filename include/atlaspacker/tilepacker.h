@@ -24,12 +24,16 @@ int       apTilePackerGetTileSize(apPacker* packer);
 // Each vertex is in range [-0.5, 0.5]
 void      apTilePackerCreateTileImageFromTriangles(apPacker* packer, apImage* image, apPosf* vertices, int num_vertices);
 
+// Takes ownership of the memory!
+void      apTilePackerSetTileImage(apPacker* _packer, apImage* _image, int twidth, int theight, uint8_t* timage);
+
+uint8_t*  apTilePackerCreateTileImageFromImage(int tile_size, int width, int height, int channels, uint8_t* src_image, int* twidth, int* theight);
+
 // Private (unit testing)
 
 // Creates a grayscale image of same dimensions as the image (width*height*1)
 uint8_t*  apTilePackerDebugCreateImageFromTileImage(apImage* image, int index, int tile_size);
 
-uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, int height, int channels, uint8_t* src_image, int* twidth, int* theight);
 
 /*
 
@@ -41,7 +45,7 @@ uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, in
 
     * Use the original rect
     * Use the "tight" rect
-    
+
 # Brute Force
     * Divide atlas into tiles of size NxN texels
 
@@ -59,13 +63,13 @@ uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, in
         * Use bitmask (32/64/128 bit) to test if segment fits in row
 
             - Atlas:    11100000 -> 0xE0
-            - Piece:      111100 -> 0x3C   
+            - Piece:      111100 -> 0x3C
                 -> won't fit (A & P != 0)
 
             - Atlas:    11100000 -> 0xE0
             - Piece:       11110 -> 0x1E
                 -> will fit (A & P == 0)
-        
+
         * Find index of first free bit
             - Atlas:    11100000 -> 5. Which means we should shift the piece 3 bits to the right
 
@@ -91,7 +95,7 @@ uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, in
                     Here B should score higher.
                     E.g. multiplying any overlapping segments, in this case a 2x2 vs a 4x4 grid of 0's.
 
-                    IDEA: We could use this to figure out which rotation to 
+                    IDEA: We could use this to figure out which rotation to
 
                     Example 2:
                     A:
@@ -104,7 +108,7 @@ uint8_t*  apTilePackerDebugCreateTileImageFromImage(int tile_size, int width, in
 
                     (we're assuming we're filling up from top left)
                     Here B should get a higher score
-                    
+
 
 
 

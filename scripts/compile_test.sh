@@ -28,11 +28,6 @@ compile_cpp_file test/test_${NAME}.cpp test${NAME}
 compile_lib test${NAME} test${NAME}
 link_exe test_${NAME} test${NAME} testutils stb atlaspacker
 
-NAME=contour
-compile_cpp_file test/test_${NAME}.cpp test${NAME}
-compile_lib test${NAME} test${NAME}
-link_exe test_${NAME} test${NAME} testutils stb atlaspacker
-
 NAME=binpacker
 compile_cpp_file test/test_${NAME}.cpp test${NAME}
 compile_lib test${NAME} test${NAME}
