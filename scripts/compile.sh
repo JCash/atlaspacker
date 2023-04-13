@@ -14,7 +14,7 @@ fi
 if [ "$USE_ASAN" != "" ]; then
     if [ "$CXX" != "g++" ]; then
         ASAN="-fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope -fsanitize=undefined"
-        ASAN_LDFLAGS="-fsanitize=address "
+        ASAN_LDFLAGS="-fsanitize=address  -fsanitize=undefined"
     fi
     echo Using ASAN
 fi

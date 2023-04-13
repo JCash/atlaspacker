@@ -10,8 +10,10 @@
 
 typedef struct
 {
-    int             no_rotate;
-    int             tile_size; // The size in texels. Default 16
+    int     no_rotate;
+    int     tile_size;          // The size in texels. Default 16
+    int     padding;            // Internal padding for each image. Default 1
+    int     alpha_threshold;    // values below or equal to this threshold are considered transparent. (range 0-255)
 } apTilePackOptions;
 
 #pragma options align=reset

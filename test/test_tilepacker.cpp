@@ -428,22 +428,6 @@ static int TestStandalone(const char* dir_path, const char* outname)
             t_tile_image_from_triangles += (GetTime() - tsubstart);
 
         }
-        else
-        {
-            int tile_size = 16;
-            int twidth = 0;
-            int theight = 0;
-            uint8_t* timage = apTilePackerCreateTileImageFromImage(tile_size, image->width, image->height, image->channels, image->data, &twidth, &theight);
-
-            tsubstart = GetTime();
-
-            triangles = apHullFromImage(timage, twidth, theight, &num_vertices);
-            num_triangles = num_vertices / 3;
-
-            apTilePackerSetTileImage(packer, apimage, twidth, theight, timage);
-
-            t_convex_hulls += (GetTime() - tsubstart);
-        }
 
         if (debug)
         {

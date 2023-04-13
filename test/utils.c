@@ -94,6 +94,10 @@ static int CompareImages(const Image** _a, const Image** _b)
 
     float square_a = ((float)max_a / (float)min_a) * (float)area_a;
     float square_b = ((float)max_b / (float)min_b) * (float)area_b;
+    if (square_a == square_b)
+    {
+        return strcmp(a->path, b->path);
+    }
     return (square_a <= square_b) ? 1 : -1;
 }
 
