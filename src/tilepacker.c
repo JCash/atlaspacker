@@ -143,26 +143,37 @@ static void apTilePackerGrowTileImage(apTileImage* image, int width, int height,
     }
 }
 
-static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_size,
-                                int width, int height, int channels, const uint8_t* data)
+void apTilePackerConvertImageToTiles(uint32_t tile_size, int alphathreshold,
+                                            int width, int height, int channels, const uint8_t* src_image,
+                                            int twidth, int theight, uint8_t* timage)
 {
-    int twidth = image->twidth;
-
-    // Calculate the bounding rect
-    int rminx = image->twidth + 1;
-    int rminy = image->theight + 1;
-    int rmaxx = -1;
-    int rmaxy = -1;
-
-    // x/y are in original image space
+    (void)theight;
     for (int y = 0, ty = 0; y < height; y += tile_size, ++ty)
     {
         for (int x = 0, tx = 0; x < width; x += tile_size, ++tx)
         {
             // Check area in image
-            int alphathreshold = 8; // TODO: Create a setting for this!
-            int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, data);
-            image->bytes[ty*twidth+tx] = nonempty;
+            int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, src_image);
+            timage[ty*twidth+tx] = nonempty;
+        }
+    }
+}
+
+static void apTilePackerCalcImageRect(apTileImage* image)
+{
+    int twidth = image->twidth;
+    int theight = image->theight;
+
+    int rminx = twidth + 1;
+    int rminy = theight + 1;
+    int rmaxx = -1;
+    int rmaxy = -1;
+
+    for (int ty = 0; ty < theight; ++ty)
+    {
+        for (int tx = 0; tx < twidth; ++tx)
+        {
+            uint8_t nonempty = image->bytes[ty*twidth+tx];
             if (nonempty)
             {
                 rminx = apMathMin(rminx, tx);
@@ -177,9 +188,60 @@ static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_
     image->rect.pos.y = rminy;
     image->rect.size.width = rmaxx - rminx + 1;
     image->rect.size.height = rmaxy - rminy + 1;
+}
 
+static void apTilePackerMakeTileImageFromImageData(apTileImage* image, int tile_size,
+                                int width, int height, int channels, const uint8_t* data)
+{
+    //int twidth = image->twidth;
+
+    // Calculate the bounding rect
+    // int rminx = image->twidth + 1;
+    // int rminy = image->theight + 1;
+    // int rmaxx = -1;
+    // int rmaxy = -1;
+
+    int alphathreshold = 8; // TODO: Create a setting for this!
+
+    apTilePackerConvertImageToTiles(tile_size, alphathreshold, width, height, channels, data, image->twidth, image->theight, image->bytes);
+
+    // x/y are in original image space
+    // for (int y = 0, ty = 0; y < height; y += tile_size, ++ty)
+    // {
+    //     for (int x = 0, tx = 0; x < width; x += tile_size, ++tx)
+    //     {
+    //         // Check area in image
+    //         int nonempty = apTilePackCheckSubImage(tile_size, x, y, width, height, channels, alphathreshold, data);
+    //         image->bytes[ty*twidth+tx] = nonempty;
+    //         if (nonempty)
+    //         {
+    //             rminx = apMathMin(rminx, tx);
+    //             rminy = apMathMin(rminy, ty);
+    //             rmaxx = apMathMax(rmaxx, tx);
+    //             rmaxy = apMathMax(rmaxy, ty);
+    //         }
+    //     }
+    // }
+
+    // image->rect.pos.x = rminx;
+    // image->rect.pos.y = rminy;
+    // image->rect.size.width = rmaxx - rminx + 1;
+    // image->rect.size.height = rmaxy - rminy + 1;
+
+    apTilePackerCalcImageRect(image);
     // printf("IMAGE RECT:\n");
     // printf("  x/y: %d %d  w/h: %d %d\n", image->rect.pos.x, image->rect.pos.y, image->rect.size.width, image->rect.size.height);
+}
+
+uint8_t* apTilePackerCreateTileImageFromImage(int tile_size, int width, int height, int channels, uint8_t* src_image, int* twidth, int* theight)
+{
+    *twidth = apMathRoundUp(width, tile_size) / tile_size;
+    *theight = apMathRoundUp(height, tile_size) / tile_size;
+    uint8_t* timage = (uint8_t*)malloc(*twidth * *theight);
+
+    int alphathreshold = 8; // TODO: Create a setting for this!
+    apTilePackerConvertImageToTiles(tile_size, alphathreshold, width, height, channels, src_image, *twidth, *theight, timage);
+    return timage;
 }
 
 
@@ -224,30 +286,11 @@ static apTileImage* apTilePackerCreateRotatedCopy(const apTileImage* image, int 
     return outimage;
 }
 
-
-static void DebugPrintTileImage(apTileImage* image)
-{
-    int twidth = image->twidth;
-    printf("IMAGE:\n");
-    for (int y = 0; y < image->theight; ++y)
-    {
-        printf("    ");
-        for (int x = 0; x < twidth; ++x)
-        {
-            printf("%d", image->bytes[y*twidth]?1:0);
-            if ((x%8) == 7)
-                printf(" ");
-        }
-        printf("\n");
-    }
-    printf("\n");
-}
-
 static void apTilePackerCreateRotatedTileImages(apTilePacker* packer, apTilePackerImage* image)
 {
     apTileImage* tile_image = image->images[0];
     assert(tile_image);
-    if (!apTilePackerImageIsSolidRect(tile_image))
+    if (!apTilePackerImageIsSolidRect(tile_image)) // TODO: Should probably optimize
     {
         image->images[image->num_images++] = apTilePackerCreateRotatedCopy(tile_image, 90);
         image->images[image->num_images++] = apTilePackerCreateRotatedCopy(tile_image, 180);
@@ -277,6 +320,33 @@ static void apTilePackerCreateTileImageFromImageData(apTilePacker* packer, apTil
 
     image->images[image->num_images++] = tile_image;
 }
+
+static void DebugPrintTileImageBytes(uint32_t width, uint32_t height, uint8_t* data)
+{
+    printf("IMAGE: %u %u\n", width, height);
+    for (int y = 0; y < height; ++y)
+    {
+        printf("    ");
+        for (int x = 0; x < width; ++x)
+        {
+            int value = data[y*width+x];
+            if (value < 10)
+                printf("%d", value);
+            else
+                printf("X");
+            if ((x%8) == 7)
+                printf(" ");
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+static void DebugPrintTileImage(apTileImage* image)
+{
+    DebugPrintTileImageBytes(image->twidth, image->theight, image->bytes);
+}
+
 
 static apImage* apTilePackerCreateImage(apPacker* _packer, const char* path, int width, int height, int channels, const uint8_t* data)
 {
@@ -354,9 +424,6 @@ void apTilePackerCreateTileImageFromTriangles(apPacker* _packer, apImage* _image
     // 1) Texel overlap tests
     // 2) Triangle rasterization
 
-    apPos rect_min = {  100000.0f,  100000.0f };
-    apPos rect_max = { -100000.0f, -100000.0f };
-
     for (int y = 0; y < theight; ++y)
     {
         // if (debug)
@@ -373,17 +440,6 @@ void apTilePackerCreateTileImageFromTriangles(apPacker* _packer, apImage* _image
 
             tile_image->bytes[y*twidth+x] = 0;
 
-            //int debug2 = debug && (x == 9 && (y==0 || y == (theight-1)));
-
-            // if (debug2)
-            // {
-            //     printf("  c0: %f, %f\n", corners[0].x, corners[0].y);
-            //     printf("  c1: %f, %f\n", corners[1].x, corners[1].y);
-            //     printf("  c2: %f, %f\n", corners[2].x, corners[2].y);
-            //     printf("  c3: %f, %f\n", corners[3].x, corners[3].y);
-            //     printf("\n");
-            // }
-
             // We neeed to check all triangles
             for (int t = 0, ti = 0; t < num_vertices/3; ++t, ti += 3)
             {
@@ -393,38 +449,18 @@ void apTilePackerCreateTileImageFromTriangles(apPacker* _packer, apImage* _image
                 triangle[1] = apMathMul(apMathAdd(triangle[1], half), tsize);
                 triangle[2] = apMathMul(apMathAdd(triangle[2], half), tsize);
 
-                // if (debug2)
-                // {
-                //     printf("  t0: %f, %f   -> %f, %f\n", triangle[0].x, triangle[0].y, (triangles[ti+0].x+0.5f)*image->super.width, (triangles[ti+0].y+0.5f)*image->super.height);
-                //     printf("  t1: %f, %f   -> %f, %f\n", triangle[1].x, triangle[1].y, (triangles[ti+1].x+0.5f)*image->super.width, (triangles[ti+1].y+0.5f)*image->super.height);
-                //     printf("  t2: %f, %f   -> %f, %f\n", triangle[2].x, triangle[2].y, (triangles[ti+2].x+0.5f)*image->super.width, (triangles[ti+2].y+0.5f)*image->super.height);
-                //     printf("\n");
-                // }
-
                 int overlap = apOverlapTest2D(triangle, 3, corners, 4);
                 if (overlap)
                 {
                     tile_image->bytes[y*twidth+x] = 1;
-
-                    rect_min.x = apMathMin(rect_min.x, x);
-                    rect_min.y = apMathMin(rect_min.y, y);
-                    rect_max.x = apMathMax(rect_max.x, x);
-                    rect_max.y = apMathMax(rect_max.y, y);
                     break;
                 }
             }
         }
-
-        // if (debug)
-        //     printf("\n");
-
     }
 
-    tile_image->rect.pos = rect_min;
-    tile_image->rect.size.width = rect_max.x - rect_min.x + 1;
-    tile_image->rect.size.height = rect_max.y - rect_min.y + 1;
+    apTilePackerCalcImageRect(tile_image);
 
-    // printf("%s\n", image->super.path);
     // printf("rect: %d, %d w/h: %d %d\n", tile_image->rect.pos.x, tile_image->rect.pos.y, tile_image->rect.size.width, tile_image->rect.size.height);
 
     // if (debug)
@@ -433,6 +469,24 @@ void apTilePackerCreateTileImageFromTriangles(apPacker* _packer, apImage* _image
     //     DebugPrintTileImage(tile_image);
     //     printf("\n");
     // }
+
+    image->images[0] = tile_image;
+    image->num_images = 1;
+}
+
+void apTilePackerSetTileImage(apPacker* _packer, apImage* _image, int twidth, int theight, uint8_t* timage)
+{
+    apTilePacker* packer = (apTilePacker*)_packer;
+    apTilePackerImage* image = (apTilePackerImage*)_image;
+    apTileImage* tile_image = (apTileImage*)malloc(sizeof(apTileImage));
+    memset(tile_image, 0, sizeof(apTileImage));
+
+    tile_image->twidth = twidth;
+    tile_image->theight = theight;
+    tile_image->bytecount = twidth*theight;
+    tile_image->bytes = timage;
+
+    apTilePackerCalcImageRect(tile_image);
 
     image->images[0] = tile_image;
     image->num_images = 1;
@@ -455,11 +509,12 @@ static int apTilePackerFitImageAtPos(apTileImage* page_image, int px, int py, in
     int end_y = start_y + theight;
 
     int page_twidth = page_image->twidth;
+    int image_twidth = image->twidth;
 
     for (int sy = start_y, dy = py; sy < end_y; ++sy, ++dy)
     {
         uint8_t* dstrow = &page_image->bytes[dy*page_twidth+0];
-        uint8_t* srcrow = &image->bytes[sy*twidth+0];
+        uint8_t* srcrow = &image->bytes[sy*image_twidth+0];
 
         for (int sx = start_x, dx = px; sx < end_x; ++sx, ++dx)
         {
@@ -565,26 +620,36 @@ static int apTilePackerPackImage(apTileImage* page_image, apTilePackerImage* ima
 static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
 {
     apTilePacker* packer = (apTilePacker*)_packer;
-    // int totalArea = 0;
-    // for (int i = 0; i < ctx->num_images; ++i)
-    // {
-    //     apImage* image = ctx->images[i];
-    //     int area = image->dimensions.width * image->dimensions.height;
-    //     totalArea += area;
-    // }
 
-    // int bin_size = (int)sqrtf(totalArea);
-    // if (bin_size == 0)
-    // {
-    //     bin_size = 128;
-    // }
-    // // Make sure the size is a power of two
-    // bin_size = apNextPowerOfTwo((uint32_t)bin_size);
+    int tile_size = packer->options.tile_size;
+    int totalArea = 0;
+    int max_rect_width = 0;
+    int max_rect_height = 0;
+    for (int i = 0; i < ctx->num_images; ++i)
+    {
+        apImage* image = ctx->images[i];
+        apTilePackerImage* apimage = (apTilePackerImage*)image;
+        //int area = image->dimensions.width * image->dimensions.height;
+        apTileImage* tile_image = apimage->images[0];
+        int width = tile_image->rect.size.width * tile_size;
+        int height = tile_image->rect.size.height * tile_size;
+        int area = width * height;
+        totalArea += area;
 
-    // Ideas:
-    //      * for each image calculate number of occupied cells, and derive area used from that
+        max_rect_width = apMathMax(max_rect_width, width);
+        max_rect_height = apMathMax(max_rect_height, height);
+    }
 
-    int bin_size = 256; // TODO: make it an option
+    int bin_size = (int)sqrtf(totalArea);
+    if (bin_size == 0)
+    {
+        bin_size = 128;
+    }
+    bin_size = apMathMax(bin_size, max_rect_width);
+    bin_size = apMathMax(bin_size, max_rect_height);
+
+    // Make sure the size is a power of two
+    bin_size = apNextPowerOfTwo((uint32_t)bin_size);
 
     apTilePackerPage* page = &packer->page;
     memset(page, 0, sizeof(apTilePackerPage));
@@ -613,7 +678,6 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
     apRect prio_area = { {0, 0}, {0, 0} };
     apRect* p_prio_area = 0;
 
-    int tile_size = packer->options.tile_size;
     int allow_rotate = !packer->options.no_rotate;
     for (int i = 0; i < ctx->num_images; ++i)
     {
@@ -664,11 +728,23 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
         apTileImage* fit_image = image->images[image_index];
 
         image->super.page = page->page->index;
-        image->super.placement.pos.x = image->pos.x * tile_size;
-        image->super.placement.pos.y = image->pos.y * tile_size;
         image->super.rotation = fit_image->rotation;
 
-        //printf("Image %s:%d (i:%d) fit at pos %d %d\n", image->super.path, image->super.rotation, image_index, image->pos.x, image->pos.y);
+        int width = image->super.width;
+        int height = image->super.height;
+        int use_offsetx = fit_image->rotation == 180 || fit_image->rotation == 270;
+        int use_offsety = fit_image->rotation == 180 || fit_image->rotation == 90;
+
+        if (fit_image->rotation == 90 || fit_image->rotation == 270)
+        {
+            width = height;
+            height = image->super.width;
+        }
+
+        int offsetx = use_offsetx * (fit_image->twidth * tile_size - width);
+        int offsety = use_offsety * (fit_image->theight * tile_size - height);
+        image->super.placement.pos.x =  image->pos.x * tile_size + offsetx;
+        image->super.placement.pos.y = image->pos.y * tile_size + offsety;
 
         //DebugPrintTileImage(page->image);
     }

@@ -270,6 +270,7 @@ static int TestStandalone(const char* dir_path, const char* outname)
     {
         DestroyImage(images[i]);
     }
+    return 0;
 }
 
 int main(int argc, char **argv)

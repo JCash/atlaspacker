@@ -141,6 +141,28 @@ void DebugDrawHull(const apPosf* vertices, int num_vertices, uint8_t* color, con
     }
 }
 
+void DebugDrawTriangles(const apPosf* triangles, int num_triangles, uint8_t* color, const Image* image, uint8_t* data)
+{
+    for (int i = 0; i < num_triangles; ++i, ++triangles)
+    {
+        apPosf p0 = triangles[0];
+        apPosf p1 = triangles[1];
+        apPosf p2 = triangles[2];
+
+        p0.x = (p0.x + 0.5f) * (float)image->width * 0.999f;
+        p0.y = (p0.y + 0.5f) * (float)image->height * 0.999f;
+        p1.x = (p1.x + 0.5f) * (float)image->width * 0.999f;
+        p1.y = (p1.y + 0.5f) * (float)image->height * 0.999f;
+        p2.x = (p2.x + 0.5f) * (float)image->width * 0.999f;
+        p2.y = (p2.y + 0.5f) * (float)image->height * 0.999f;
+
+        draw_line((int)p0.x, (int)p0.y, (int)p1.x, (int)p1.y, data, image->width, image->height, image->channels, color);
+        draw_line((int)p1.x, (int)p1.y, (int)p2.x, (int)p2.y, data, image->width, image->height, image->channels, color);
+        draw_line((int)p2.x, (int)p2.y, (int)p0.x, (int)p0.y, data, image->width, image->height, image->channels, color);
+    }
+}
+
+
 int IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, const char*), void* ctx)
 {
     struct dirent* entry = 0;
@@ -178,4 +200,69 @@ int IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, 
 cleanup:
     closedir(dir);
     return 1;
+}
+
+void DebugPrintTileImage(uint32_t width, uint32_t height, uint8_t* data)
+{
+    printf("IMAGE: %u %u\n", width, height);
+    for (int y = 0; y < height; ++y)
+    {
+        printf("    ");
+        for (int x = 0; x < width; ++x)
+        {
+            int value = data[y*width+x];
+            if (value < 10)
+                printf("%d", value);
+            else
+                printf("X");
+            if ((x%8) == 7)
+                printf(" ");
+        }
+        printf("\n");
+    }
+    printf("\n");
+}
+
+static int IsSubImageNonEmpty(int tile_size, int x, int y,
+                                int width, int height, int alphathreshold, const uint8_t* data)
+{
+    int channels = 4;
+    for (int yy = y; yy < y + tile_size && yy < height; ++yy)
+    {
+        for (int xx = x; xx < x + tile_size && xx < width; ++xx)
+        {
+            int index = yy * width * channels + xx * channels;
+            if (data[index+3] > alphathreshold)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+static void ConvertImageToTiles(uint32_t tile_size, int alphathreshold,
+                                            int width, int height, int channels, const uint8_t* src_image,
+                                            int twidth, int theight, uint8_t* timage)
+{
+    (void)theight;
+    for (int y = 0, ty = 0; y < height; y += tile_size, ++ty)
+    {
+        for (int x = 0, tx = 0; x < width; x += tile_size, ++tx)
+        {
+            // Check area in image
+            int nonempty = 1; // always visible for RGB images
+            if (channels == 4) // only for alpha images, we'll do a visibility check
+                nonempty = IsSubImageNonEmpty(tile_size, x, y, width, height, alphathreshold, src_image);
+
+            timage[ty*twidth+tx] = nonempty;
+        }
+    }
+}
+
+uint8_t* CreateTileImage(Image* image, uint32_t tile_size, int alphathreshold, int* twidth, int* theight)
+{
+    *twidth = apMathRoundUp(image->width, tile_size) / tile_size;
+    *theight = apMathRoundUp(image->height, tile_size) / tile_size;
+    uint8_t* timage = (uint8_t*)malloc(*twidth * *theight);
+    ConvertImageToTiles(tile_size, alphathreshold, image->width, image->height, image->channels, image->data, *twidth, *theight, timage);
+    return timage;
 }
