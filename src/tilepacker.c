@@ -585,15 +585,17 @@ static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apR
 
         // Make a rect of the rest of the area
         // The prio area is assumed to extend fully in one of the directions
+        // Also, we need to make sure we consider the case where a good fit would be across the border.
+        // So we extend this rect with the width or height of the image
         if (prio_area->size.height == rect.size.height)
         {
-            rect.pos.x = prio_area->size.width;
-            rect.size.width = page_image->twidth - prio_area->size.width;
+            rect.pos.x = prio_area->size.width - image->twidth;
+            rect.size.width = page_image->twidth - prio_area->size.width + image->twidth;
         }
         else
         {
-            rect.pos.y = prio_area->size.height;
-            rect.size.height = page_image->theight - prio_area->size.height;
+            rect.pos.y = prio_area->size.height - image->theight;
+            rect.size.height = page_image->theight - prio_area->size.height + image->theight;
         }
     }
 
