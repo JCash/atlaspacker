@@ -10,9 +10,7 @@
 
 #if defined(_WIN32)
     #include "win32/dirent.h"
-    #include <Windows.h> // QPC
 #else
-    #include <sys/time.h>
     #include <sys/types.h>
     #include <sys/stat.h>
     #include <dirent.h>
@@ -22,17 +20,7 @@
 
 uint64_t GetTime()
 {
-#if defined(_WIN32)
-    LARGE_INTEGER tickPerSecond;
-    LARGE_INTEGER tick;
-    QueryPerformanceFrequency(&tickPerSecond);
-    QueryPerformanceCounter(&tick);
-    return (uint64_t)(tick.QuadPart / (tickPerSecond.QuadPart / 1000000));
-#else
-    struct timeval tv;
-    gettimeofday(&tv, 0);
-    return (uint64_t)(tv.tv_sec) * 1000000U + (uint64_t)(tv.tv_usec);
-#endif
+    return apGetTime();
 }
 
 Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)

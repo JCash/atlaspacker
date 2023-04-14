@@ -11,6 +11,12 @@
 #include <string.h>
 #include <stdio.h> // printf
 
+#if defined(_WIN32)
+    #include <Windows.h> // QPC
+#else
+    #include <sys/time.h>
+#endif
+
 apContext* apCreate(apOptions* options, apPacker* packer)
 {
     assert(options != 0);
@@ -396,4 +402,19 @@ uint8_t* apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height
         }
     }
     return out;
+}
+
+uint64_t apGetTime()
+{
+#if defined(_WIN32)
+    LARGE_INTEGER tickPerSecond;
+    LARGE_INTEGER tick;
+    QueryPerformanceFrequency(&tickPerSecond);
+    QueryPerformanceCounter(&tick);
+    return (uint64_t)(tick.QuadPart / (tickPerSecond.QuadPart / 1000000));
+#else
+    struct timeval tv;
+    gettimeofday(&tv, 0);
+    return (uint64_t)(tv.tv_sec) * 1000000U + (uint64_t)(tv.tv_usec);
+#endif
 }

@@ -96,6 +96,8 @@ uint8_t*    apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t hei
 // Internal
 apPage*     apAllocPage(apContext* ctx);
 
+uint64_t    apGetTime(); // for profiling
+
 // Math functions
 uint32_t    apNextPowerOfTwo(uint32_t v);
 
