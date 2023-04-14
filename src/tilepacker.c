@@ -51,17 +51,18 @@ typedef struct
     uint8_t* data;   // May be 0 if there is no padded image
 } apTilePackerImage;
 
-typedef struct
+typedef struct apTilePackerPage
 {
-    apPage*         page;
-    apTileImage*    image;
+    struct apTilePackerPage*    next;
+    apPage*                     page;
+    apTileImage*                image;
 } apTilePackerPage;
 
 typedef struct
 {
     apPacker          super;
     apTilePackOptions options;
-    apTilePackerPage  page; // currently just a single page, that grows dynamically
+    apTilePackerPage  page;
 } apTilePacker;
 
 #pragma options align=reset
@@ -453,12 +454,6 @@ static apImage* apTilePackerCreateImage(apPacker* _packer, const char* path, int
         }
     }
 
-    // for (int i = 0; i < image->num_images; ++i)
-    // {
-    //     apTileImage* tile_image = image->images[i];
-    //     DebugPrintTileImage(tile_image);
-    // }
-
     return (apImage*)image;
 }
 
@@ -729,52 +724,73 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
 {
     apTilePacker* packer = (apTilePacker*)_packer;
 
-    int tile_size = packer->options.tile_size;
-    int totalArea = 0;
-    int max_rect_width = 0;
-    int max_rect_height = 0;
+    uint64_t timestart = apGetTime();
+
+    // Create tile images
     for (int i = 0; i < ctx->num_images; ++i)
     {
         apImage* image = ctx->images[i];
         apTilePackerImage* apimage = (apTilePackerImage*)image;
-        apTileImage* tile_image = apimage->images[0];
-        if (!tile_image)
+        if (!apimage->images[0])
         {
             apTilePackerCreateTileImageFromImageData(packer, apimage);
             apTilePackerCreateRotatedTileImages(packer, apimage);
-            tile_image = apimage->images[0];
+        }
+    }
+
+    uint64_t timeend = apGetTime();
+    printf("  Create tile images took %.2f ms\n", (timeend-timestart)/1000.0f);
+
+
+    int tile_size = packer->options.tile_size;
+
+    // The pages grow dynamically, so let's figure out a good starting size
+    int page_size = ctx->options.page_size;
+    if (page_size == 0)
+    {
+        int totalArea = 0;
+        int max_rect_width = 0;
+        int max_rect_height = 0;
+
+        for (int i = 0; i < ctx->num_images; ++i)
+        {
+            apImage* image = ctx->images[i];
+            apTilePackerImage* apimage = (apTilePackerImage*)image;
+            apTileImage* tile_image = apimage->images[0];
+
+            int width = tile_image->rect.size.width * tile_size;
+            int height = tile_image->rect.size.height * tile_size;
+            int area = width * height;
+            totalArea += area;
+
+            max_rect_width = apMathMax(max_rect_width, width);
+            max_rect_height = apMathMax(max_rect_height, height);
         }
 
-        int width = tile_image->rect.size.width * tile_size;
-        int height = tile_image->rect.size.height * tile_size;
-        int area = width * height;
-        totalArea += area;
+        int bin_size = (int)sqrtf(totalArea);
+        if (bin_size == 0)
+        {
+            bin_size = 128;
+        }
+        bin_size = apMathMax(bin_size, max_rect_width);
+        bin_size = apMathMax(bin_size, max_rect_height);
 
-        max_rect_width = apMathMax(max_rect_width, width);
-        max_rect_height = apMathMax(max_rect_height, height);
+        // Make sure the size is a power of two
+        page_size = apNextPowerOfTwo((uint32_t)bin_size);
+        // However, it's usually a better fit to take a smaller size and then grow a bit
+        page_size /= 2;
     }
 
-    int bin_size = (int)sqrtf(totalArea);
-    if (bin_size == 0)
     {
-        bin_size = 128;
+        apTilePackerPage* page = &packer->page;
+        memset(page, 0, sizeof(apTilePackerPage));
+        page->page = apAllocPage(ctx);
+        page->page->index = 0;
+        page->page->dimensions.width = page_size;
+        page->page->dimensions.height = page_size;
+
+        printf("Creating page: %d  %d x %d\n", page->page->index, page->page->dimensions.width, page->page->dimensions.height);
     }
-    bin_size = apMathMax(bin_size, max_rect_width);
-    bin_size = apMathMax(bin_size, max_rect_height);
-
-    // Make sure the size is a power of two
-    bin_size = apNextPowerOfTwo((uint32_t)bin_size);
-
-    apTilePackerPage* page = &packer->page;
-    memset(page, 0, sizeof(apTilePackerPage));
-    page->page = apAllocPage(ctx);
-    page->page->index = 0;
-    page->page->dimensions.width = bin_size;
-    page->page->dimensions.height = bin_size;
-
-printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dimensions.height);
-
-    page->image = 0;
 
 // printf("packing...\n");
 // printf("  page size: %d x %d\n", page->page->dimensions.width, page->page->dimensions.height);
@@ -782,49 +798,91 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
     apRect prio_area = { {0, 0}, {0, 0} };
     apRect* p_prio_area = 0;
 
+    uint64_t t_pack_image = 0;
+
     int allow_rotate = !packer->options.no_rotate;
     for (int i = 0; i < ctx->num_images; ++i)
     {
         apTilePackerImage* image = (apTilePackerImage*)ctx->images[i];
 
-        if (!page->image)
-        {
-            int width = apNextPowerOfTwo(image->super.dimensions.width);
-            int height = apNextPowerOfTwo(image->super.dimensions.width);
-            page->image = apTilePackerCreateTileImage(width, height, tile_size);
+        int image_index = -1;
+        apTilePackerPage* page = &packer->page;
+        while (page) {
+            if (!page->image)
+            {
+                int width = apNextPowerOfTwo(page_size);
+                int height = apNextPowerOfTwo(page_size);
+                page->image = apTilePackerCreateTileImage(width, height, tile_size);
 
-            prio_area.pos.x = 0;
-            prio_area.pos.y = 0;
-            prio_area.size.width = width/tile_size;
-            prio_area.size.height = height/tile_size;
-            printf("Creating page image: %d x %d\n", width, height);
+                prio_area.pos.x = 0;
+                prio_area.pos.y = 0;
+                prio_area.size.width = width/tile_size;
+                prio_area.size.height = height/tile_size;
+                printf("Creating page image: %d x %d\n", width, height);
+            }
+            timestart = apGetTime();
+
+            image_index = apTilePackerPackImage(page->image, image, p_prio_area, allow_rotate);
+
+            timeend = apGetTime();
+            t_pack_image += timeend - timestart;
+
+            if (image_index != -1)
+            {
+                // we found a fit in this page!
+                break;
+            }
+
+            page = page->next;
         }
 
-        int image_index = apTilePackerPackImage(page->image, image, p_prio_area, allow_rotate);
+        // We tried all pages but it didn't fit
         if (image_index == -1)
         {
-            // Use the previous area as the first search area
-            prio_area.size.width = page->image->twidth;
-            prio_area.size.height = page->image->theight;
-            p_prio_area = &prio_area;
+            if (ctx->options.page_size != 0)
+            {
+                apTilePackerPage* new_page = (apTilePackerPage*)malloc(sizeof(apTilePackerPage));
+                memset(new_page, 0, sizeof(apTilePackerPage));
+                new_page->page = apAllocPage(ctx);
+                new_page->page->index = 1;
+                new_page->page->dimensions.width = page_size;
+                new_page->page->dimensions.height = page_size;
 
-            // grow the page, or find a next page that will fit this image
-            int width = page->image->twidth * tile_size;
-            int height = page->image->theight * tile_size;
-            if (width <= height)
-                width *= 2;
+                // insert the new page
+                apTilePackerPage* last_page = &packer->page;
+                while (last_page && last_page->next)
+                {
+                    new_page->page->index++;
+                    last_page = last_page->next;
+                }
+                last_page->next = new_page;
+
+                printf("Creating page: %d  %d x %d\n", new_page->page->index, new_page->page->dimensions.width, new_page->page->dimensions.height);
+            }
             else
-                height *= 2;
-            apTilePackerGrowTileImage(page->image, width, height, tile_size);
-            printf("Growing page image to %d x %d\n", width, height);
+            {
+                page = &packer->page;
 
-            // TODO: Handle max size according to user settings
-            // if (width > 16384 || height > 16384)
-            //     create new page
+                // Use the previous area as the first search area
+                prio_area.size.width = page->image->twidth;
+                prio_area.size.height = page->image->theight;
+                p_prio_area = &prio_area;
 
-            page->page->dimensions.width = width;
-            page->page->dimensions.height = height;
+                // grow the page, or find a next page that will fit this image
+                int width = page->image->twidth * tile_size;
+                int height = page->image->theight * tile_size;
+                if (width <= height)
+                    width *= 2;
+                else
+                    height *= 2;
+                apTilePackerGrowTileImage(page->image, width, height, tile_size);
+                printf("Growing page image to %d x %d\n", width, height);
 
+                page->page->dimensions.width = width;
+                page->page->dimensions.height = height;
+            }
+
+            // Try again
             --i;
             continue;
         }
@@ -853,8 +911,21 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
         // also correct for any padding
         image->super.placement.pos.x += image->padding;
         image->super.placement.pos.y += image->padding;
+
+        // int debug = image->pos.x == 0 && image->pos.y == 20;
+        // //int debug = image->pos.x == 0 && image->pos.y == 11;
+        // //int debug = image->pos.x == 13 && image->pos.y == 46;
+        // // int debug = (image->pos.x == 154 || image->pos.x == 155) &&
+        // //             (image->pos.y == 21 || image->pos.y == 22);
+        // if (debug)
+        // {
+        //     printf("Image %s:%d (i:%d) fit at pos %d %d\n", image->super.path, image->super.rotation, image_index, image->pos.x, image->pos.y);
+        // }
+
         //DebugPrintTileImage(page->image);
     }
+
+    printf("   Pack tile images took %.2f ms\n", t_pack_image/1000.0f);
 }
 
 uint8_t* apTilePackerDebugCreateImageFromTileImage(apImage* _image, int tile_image_index, int tile_size)
@@ -903,6 +974,14 @@ uint8_t* apTilePackerDebugCreateImageFromTileImage(apImage* _image, int tile_ima
     return mem;
 }
 
+void apTilePackerSetDefaultOptions(apTilePackOptions* options)
+{
+    memset(options, 0, sizeof(apTilePackOptions));
+    options->tile_size = 16;
+    options->padding = 1;
+    options->alpha_threshold = 1;
+}
+
 apPacker* apTilePackerCreate(apTilePackOptions* options)
 {
     apTilePacker* packer = (apTilePacker*)malloc(sizeof(apTilePacker));
@@ -912,12 +991,6 @@ apPacker* apTilePackerCreate(apTilePackOptions* options)
     packer->super.destroyImage = apTilePackerDestroyImage;
     packer->super.packImages = apTilePackerPackImages;
     packer->options = *options;
-    if (packer->options.tile_size == 0)
-        packer->options.tile_size = 16;
-    if (packer->options.padding == 0)
-        packer->options.padding = 1;
-    if (packer->options.alpha_threshold == 0)
-        packer->options.alpha_threshold = 1;
     return (apPacker*)packer;
 }
 

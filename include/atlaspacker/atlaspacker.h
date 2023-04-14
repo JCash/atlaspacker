@@ -27,9 +27,10 @@ typedef struct {
     apSize  size;
 } apRect;
 
-typedef struct {
-    apSize  dimensions;
-    int     index;
+typedef struct apPage {
+    struct apPage*  next;
+    apSize          dimensions;
+    int             index;
 } apPage;
 
 typedef struct {
@@ -46,7 +47,7 @@ typedef struct {
 
 typedef struct
 {
-    int not_used;
+    int page_size;
 } apOptions;
 
 typedef struct {
@@ -71,6 +72,7 @@ typedef struct _apPacker
 #pragma options align=reset
 
 /////////////////////////////////////////////////////////
+void        apSetDefaultOptions(apOptions* options);
 apContext*  apCreate(apOptions* options, apPacker* packer);
 void        apDestroy(apContext* ctx);
 apImage*    apAddImage(apContext* ctx, const char* path, int width, int height, int channels, const uint8_t* data);

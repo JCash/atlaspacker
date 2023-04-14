@@ -18,6 +18,7 @@ typedef struct
 
 #pragma options align=reset
 
+void      apTilePackerSetDefaultOptions(apTilePackOptions* options);
 apPacker* apTilePackerCreate(apTilePackOptions* options);
 void      apTilePackerDestroy(apPacker* packer);
 int       apTilePackerGetTileSize(apPacker* packer);

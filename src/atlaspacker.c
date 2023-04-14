@@ -17,6 +17,12 @@
     #include <sys/time.h>
 #endif
 
+void apSetDefaultOptions(apOptions* options)
+{
+    memset(options, 0, sizeof(apOptions));
+    options->page_size = 0; // can grow dynamically
+}
+
 apContext* apCreate(apOptions* options, apPacker* packer)
 {
     assert(options != 0);
@@ -73,12 +79,19 @@ int apGetNumPages(apContext* ctx)
 
 apPage* apAllocPage(apContext* ctx)
 {
-    ctx->num_pages++;
-    ctx->pages = (apPage*)realloc(ctx->pages, sizeof(apPage)*ctx->num_pages);
-    apPage* page = &ctx->pages[ctx->num_pages-1];
+    apPage* page = (apPage*)malloc(sizeof(apPage));
     memset(page, 0, sizeof(apPage));
-    page->index = ctx->num_pages-1;
-    // possibly set a max size of the page
+    page->index = ctx->num_pages++;
+
+    if (ctx->pages == 0)
+        ctx->pages = page;
+    else
+    {
+        apPage* prev = ctx->pages;
+        while (prev && prev->next)
+            prev = prev->next;
+        prev->next = page;
+    }
     return page;
 }
 
@@ -111,9 +124,20 @@ static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_
                         const uint8_t* source, int source_width, int source_height, int source_channels,
                         int x, int y, int rotation);
 
+static apPage* apFindPage(apPage* page, int index)
+{
+    while (page)
+    {
+        if (page->index == index)
+            return page;
+        page = page->next;
+    }
+    return 0;
+}
+
 uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, int* channels)
 {
-    apPage* page = &ctx->pages[page_index];
+    apPage* page = apFindPage(ctx->pages, page_index);
     int w = page->dimensions.width;
     int h = page->dimensions.height;
     int c = ctx->num_channels;

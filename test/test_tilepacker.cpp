@@ -513,10 +513,10 @@ int main(int argc, char **argv)
         const char* outname = "standalone";
 
         apOptions options;
-        memset(&options, 0, sizeof(options));
+        apSetDefaultOptions(&options);
 
         apTilePackOptions packer_options;
-        memset(&packer_options, 0, sizeof(packer_options));
+        apTilePackerSetDefaultOptions(&packer_options);
 
 #define CHECK_NAME(_SHORT, _LONG)      if (strcmp(_SHORT, argv[i])==0 || strcmp(_LONG, argv[i])==0)
 
@@ -527,8 +527,10 @@ int main(int argc, char **argv)
             CHECK_NAME("-t", "--tile_size") { packer_options.tile_size       = atoi(argv[++i]); continue; }
             CHECK_NAME("-a", "--alpha")     { packer_options.alpha_threshold = atoi(argv[++i]); continue; }
             CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
-            CHECK_NAME("-d", "--dir")       { dir_path        = argv[++i]; continue; }
-            CHECK_NAME("-o", "--output")    { outname         = argv[++i]; continue; }
+            CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
+            CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
+            CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }
+            CHECK_NAME("-o", "--output")    { outname                        = argv[++i]; continue; }
             dir_path = argv[i];
         }
 
@@ -536,6 +538,7 @@ int main(int argc, char **argv)
 
         printf("Dir:                %s\n", dir_path?dir_path:"none");
         printf("Output:             %s\n", outname);
+        printf("page_size:          %d\n", options.page_size);
         printf("tile size:          %d\n", packer_options.tile_size);
         printf("padding:            %d\n", packer_options.padding);
         printf("alpha threshold:    %d\n", packer_options.alpha_threshold);
