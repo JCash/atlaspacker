@@ -17,7 +17,7 @@
 //
 //     +-----+
 //     |     +--+
-// +---+        
+// +---+
 //
 typedef struct
 {
@@ -26,8 +26,9 @@ typedef struct
     int     width;
 } apBinPackSkylineNode;
 
-typedef struct
+typedef struct apBinPackerPage
 {
+    struct apBinPackerPage* next;
     apPage*                 page;
     apBinPackSkylineNode*   skyline;
     int                     skyline_size;
@@ -36,9 +37,10 @@ typedef struct
 
 typedef struct
 {
-    apPacker         super;
-    apBinPackOptions options;
-    apBinPackerPage  page; // currently just a single page, that grows dynamically
+    apPacker            super;
+    apBinPackerOptions  options;
+    apBinPackerPage     page;
+    apBinPackerPage*    current_page;
 } apBinPacker;
 
 // static void debugSkyline(apBinPackerPage* page)
@@ -68,7 +70,7 @@ static void apBinPackDestroyImage(apPacker* packer, apImage* image)
 
 // For the skyline nodes that lie under the "width" of this rect,
 // find the max Y value.
-// If the remaining width/height of the bin cannot hold the rect at the 
+// If the remaining width/height of the bin cannot hold the rect at the
 // position of (skyline[index].x, best_height), then it returns 0
 static int apBinPackSLBLRectangleFitsAtNode(apBinPackerPage* page, int index, int width, int height,
                                     int bin_width, int bin_height, int* max_height)
@@ -134,7 +136,7 @@ static int apBinPackSkylineBLPackRect(apBinPackerPage* page, int width, int heig
 //printf("   best_index: %d\n", best_index);
                 }
             } // else it didn't fit
-            
+
             if (!allow_rotate || width == height)
             {
                 // move on to the next skyline node
@@ -206,12 +208,12 @@ static void apBinPackFixupSkyline(apBinPackerPage* page, int index)
                 apBinPackEraseSkylineNode(page, i);
                 --i;
             }
-            else 
+            else
             {
                 break;
             }
         }
-        else 
+        else
         {
             break;
         }
@@ -287,26 +289,33 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
         totalArea += area;
     }
 
-    int bin_size = (int)sqrtf(totalArea);
-    if (bin_size == 0)
+    int page_size = ctx->options.page_size;
+    printf("pagesize: %d\n", page_size);
+    if (page_size == 0)
     {
-        bin_size = 128;
+        int bin_size = (int)sqrtf(totalArea);
+        if (bin_size == 0)
+        {
+            bin_size = 128;
+        }
+        // Make sure the size is a power of two
+        page_size = apNextPowerOfTwo((uint32_t)bin_size);
+        // However, it's usually a better fit to take a smaller size and then grow a bit
+        page_size /= 2;
     }
-    // Make sure the size is a power of two
-    bin_size = apNextPowerOfTwo((uint32_t)bin_size);
 
     apBinPackerPage* page = &packer->page;
     memset(page, 0, sizeof(apBinPackerPage));
     page->page = apAllocPage(ctx);
-    // binsize^2 is too conservative, so we'd rather risk growing the image a bit
-    page->page->dimensions.width = bin_size;
-    page->page->dimensions.height = bin_size / 2;
+    page->page->dimensions.width = page_size;
+    page->page->dimensions.height = page_size;
+    packer->current_page = page;
 
     apBinPackSkylineNode node;
     node.x = 0;
     node.y = 0;
     node.width = page->page->dimensions.width;
-    apBinPackInsertSkylineNode(page, 0, &node);
+    apBinPackInsertSkylineNode(packer->current_page, 0, &node);
 
 // printf("packing...\n");
 // printf("  page size: %d x %d\n", page->page->dimensions.width, page->page->dimensions.height);
@@ -317,19 +326,42 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
     {
         apImage* image = ctx->images[i];
 
-        if (apBinPackPackRect(page, image->dimensions.width, image->dimensions.height, allow_rotate, &image->placement))
+        apBinPackerPage* page = packer->current_page;
+        int fit = apBinPackPackRect(page, image->dimensions.width, image->dimensions.height, allow_rotate, &image->placement);
+        if (fit)
         {
             image->rotation = image->placement.size.width == image->dimensions.width ? 0 : 90;
             image->page = page->page->index;
 
 // printf("  rotation: %d   pos: %d, %d  %d, %d\n", image->rotation,
 //         image->placement.pos.x, image->placement.pos.y, image->placement.size.width, image->placement.size.height);
-
         }
-        else
+
+        if (!fit)
         {
-            // We need to grow the page size (or switch page)
-            apBinPackPackGrowPage(page);
+            if (ctx->options.page_size)
+            {
+                apBinPackerPage* new_page = (apBinPackerPage*)malloc(sizeof(apBinPackerPage));
+                memset(new_page, 0, sizeof(apBinPackerPage));
+                new_page->page = apAllocPage(ctx);
+                new_page->page->dimensions.width = page_size;
+                new_page->page->dimensions.height = page_size;
+
+                apBinPackSkylineNode node;
+                node.x = 0;
+                node.y = 0;
+                node.width = new_page->page->dimensions.width;
+                apBinPackInsertSkylineNode(new_page, 0, &node);
+
+                new_page->next = packer->current_page;
+                packer->current_page = new_page;
+            }
+            else
+            {
+                // We need to grow the page size (or switch page)
+                apBinPackPackGrowPage(page);
+            }
+
             // Try to refit this image again
             --i;
             continue;
@@ -340,7 +372,13 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
 
 }
 
-apPacker* apCreateBinPacker(apBinPackOptions* options)
+void apBinPackerSetDefaultOptions(apBinPackerOptions* options)
+{
+    memset(options, 0, sizeof(apBinPackerOptions));
+    options->mode = AP_BP_MODE_DEFAULT;
+}
+
+apPacker* apBinPackerCreate(apBinPackerOptions* options)
 {
     apBinPacker* packer = (apBinPacker*)malloc(sizeof(apBinPacker));
     memset(packer, 0, sizeof(apBinPacker));
@@ -352,7 +390,7 @@ apPacker* apCreateBinPacker(apBinPackOptions* options)
     return (apPacker*)packer;
 }
 
-void apDestroyBinPacker(apPacker* packer)
+void apBinPackerDestroy(apPacker* packer)
 {
     free((void*)packer);
 }

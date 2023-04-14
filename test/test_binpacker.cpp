@@ -13,10 +13,10 @@ extern "C" {
 }
 
 TEST(PackerBinPack, PackSmall) {
-    apBinPackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apBinPackerOptions packer_options;
+    apBinPackerSetDefaultOptions(&packer_options);
     packer_options.mode = AP_BP_MODE_DEFAULT;
-    apPacker* packer = apCreateBinPacker(&packer_options);
+    apPacker* packer = apBinPackerCreate(&packer_options);
 
     apOptions options;
     apContext* ctx = apCreate(&options, packer);
@@ -117,10 +117,10 @@ TEST(PackerBinPack, PackSpineboy) {
 
     SortImages(images, num_images);
 
-    apBinPackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apBinPackerOptions packer_options;
+    apBinPackerSetDefaultOptions(&packer_options);
     packer_options.mode = AP_BP_MODE_DEFAULT;
-    apPacker* packer = apCreateBinPacker(&packer_options);
+    apPacker* packer = apBinPackerCreate(&packer_options);
 
     apOptions options;
     apContext* ctx = apCreate(&options, packer);
@@ -136,6 +136,7 @@ TEST(PackerBinPack, PackSpineboy) {
     ASSERT_TRUE(DebugWriteOutput(ctx, "pack_bin_spineboy"));
 
     apDestroy(ctx);
+    apBinPackerDestroy(packer);
 
     for (int i = 0; i < num_images; ++i)
     {
@@ -161,10 +162,10 @@ TEST(PackerBinPack, DefoldAtlas) {
 
     SortImages(images, num_images);
 
-    apBinPackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apBinPackerOptions packer_options;
+    apBinPackerSetDefaultOptions(&packer_options);
     packer_options.mode = AP_BP_MODE_DEFAULT;
-    apPacker* packer = apCreateBinPacker(&packer_options);
+    apPacker* packer = apBinPackerCreate(&packer_options);
 
     apOptions options;
     apContext* ctx = apCreate(&options, packer);
@@ -181,6 +182,7 @@ TEST(PackerBinPack, DefoldAtlas) {
     ASSERT_TRUE(DebugWriteOutput(ctx, "pack_bin_atlas"));
 
     apDestroy(ctx);
+    apBinPackerDestroy(packer);
 
     for (int i = 0; i < num_images; ++i)
     {
@@ -214,7 +216,7 @@ static int FileIterator(void* _ctx, const char* path)
     return 1;
 }
 
-static int TestStandalone(const char* dir_path, const char* outname)
+static int TestStandalone(const char* dir_path, const char* outname, apOptions* options, apBinPackerOptions* packer_options)
 {
     printf("DIR PATH: %s\n", dir_path);
 
@@ -237,13 +239,8 @@ static int TestStandalone(const char* dir_path, const char* outname)
 
     tstart = GetTime();
 
-    apBinPackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
-    packer_options.mode = AP_BP_MODE_DEFAULT;
-    apPacker* packer = apCreateBinPacker(&packer_options);
-
-    apOptions options;
-    apContext* ctx = apCreate(&options, packer);
+    apPacker* packer = apBinPackerCreate(packer_options);
+    apContext* ctx = apCreate(options, packer);
 
     for (int i = 0; i < images.Size(); ++i)
     {
@@ -265,6 +262,7 @@ static int TestStandalone(const char* dir_path, const char* outname)
     printf("Writing packed image took %.2f ms\n", (tend-tstart)/1000.0f);
 
     apDestroy(ctx);
+    apBinPackerDestroy(packer);
 
     for (int i = 0; i < images.Size(); ++i)
     {
@@ -277,12 +275,40 @@ int main(int argc, char **argv)
 {
     if (argc > 1)
     {
-        const char* dir_path = argv[1];
+        const char* dir_path = 0;
         const char* outname = "standalone";
-        if (argc > 2)
-            outname = argv[2];
 
-        return TestStandalone(dir_path, outname);
+        apOptions options;
+        apSetDefaultOptions(&options);
+
+        apBinPackerOptions packer_options;
+        apBinPackerSetDefaultOptions(&packer_options);
+
+#define CHECK_NAME(_SHORT, _LONG)      if (strcmp(_SHORT, argv[i])==0 || strcmp(_LONG, argv[i])==0)
+
+        for (int i = 1; i < argc; ++i)
+        {
+            // CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
+            CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
+            CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }
+            CHECK_NAME("-o", "--output")    { outname                        = argv[++i]; continue; }
+            dir_path = argv[i];
+        }
+
+#undef CHECK_NAME
+
+        printf("Dir:                %s\n", dir_path?dir_path:"none");
+        printf("Output:             %s\n", outname);
+        printf("page_size:          %d\n", options.page_size);
+        //printf("padding:            %d\n", packer_options.padding);
+
+        if (!dir_path)
+        {
+            printf("No directory specified!");
+            return 1;
+        }
+
+        return TestStandalone(dir_path, outname, &options, &packer_options);
     }
 
     jc_test_init(&argc, argv);

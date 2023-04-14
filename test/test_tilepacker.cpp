@@ -73,11 +73,12 @@ TEST(PackerTilePack, OverlapTest)
 }
 
 TEST(PackerTilePack, PackSmall) {
-    apTilePackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apTilePackerOptions packer_options;
+    apTilePackerSetDefaultOptions(&packer_options);
     apPacker* packer = apTilePackerCreate(&packer_options);
 
     apOptions options;
+    apSetDefaultOptions(&options);
     apContext* ctx = apCreate(&options, packer);
 
     const char* paths[] = {
@@ -164,11 +165,12 @@ TEST(PackerTilePack, PackSpineboyNoVertices) {
 
     SortImages(images, num_images);
 
-    apTilePackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apTilePackerOptions packer_options;
+    apTilePackerSetDefaultOptions(&packer_options);
     apPacker* packer = apTilePackerCreate(&packer_options);
 
     apOptions options;
+    apSetDefaultOptions(&options);
     apContext* ctx = apCreate(&options, packer);
 
     for (int i = 0; i < num_images; ++i)
@@ -205,11 +207,12 @@ TEST(PackerTilePack, PackSpineboyVertices) {
 
     SortImages(images, num_images);
 
-    apTilePackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
+    apTilePackerOptions packer_options;
+    apTilePackerSetDefaultOptions(&packer_options);
     apPacker* packer = apTilePackerCreate(&packer_options);
 
     apOptions options;
+    apSetDefaultOptions(&options);
     apContext* ctx = apCreate(&options, packer);
 
     for (int i = 0; i < num_images; ++i)
@@ -324,7 +327,7 @@ static int FileIterator(void* _ctx, const char* path)
     return 1;
 }
 
-static int TestStandalone(const char* dir_path, const char* outname, apOptions* options, apTilePackOptions* packer_options)
+static int TestStandalone(const char* dir_path, const char* outname, apOptions* options, apTilePackerOptions* packer_options)
 {
     printf("DIR PATH: %s\n", dir_path);
 
@@ -515,18 +518,15 @@ int main(int argc, char **argv)
         apOptions options;
         apSetDefaultOptions(&options);
 
-        apTilePackOptions packer_options;
+        apTilePackerOptions packer_options;
         apTilePackerSetDefaultOptions(&packer_options);
 
 #define CHECK_NAME(_SHORT, _LONG)      if (strcmp(_SHORT, argv[i])==0 || strcmp(_LONG, argv[i])==0)
 
         for (int i = 1; i < argc; ++i)
         {
-            printf("%d %s\n", i, argv[i]);
-
             CHECK_NAME("-t", "--tile_size") { packer_options.tile_size       = atoi(argv[++i]); continue; }
             CHECK_NAME("-a", "--alpha")     { packer_options.alpha_threshold = atoi(argv[++i]); continue; }
-            CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
             CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
             CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
             CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }

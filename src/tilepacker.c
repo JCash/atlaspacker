@@ -61,7 +61,7 @@ typedef struct apTilePackerPage
 typedef struct
 {
     apPacker          super;
-    apTilePackOptions options;
+    apTilePackerOptions options;
     apTilePackerPage  page;
 } apTilePacker;
 
@@ -844,17 +844,13 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
                 apTilePackerPage* new_page = (apTilePackerPage*)malloc(sizeof(apTilePackerPage));
                 memset(new_page, 0, sizeof(apTilePackerPage));
                 new_page->page = apAllocPage(ctx);
-                new_page->page->index = 1;
                 new_page->page->dimensions.width = page_size;
                 new_page->page->dimensions.height = page_size;
 
                 // insert the new page
                 apTilePackerPage* last_page = &packer->page;
                 while (last_page && last_page->next)
-                {
-                    new_page->page->index++;
                     last_page = last_page->next;
-                }
                 last_page->next = new_page;
 
                 printf("Creating page: %d  %d x %d\n", new_page->page->index, new_page->page->dimensions.width, new_page->page->dimensions.height);
@@ -974,15 +970,15 @@ uint8_t* apTilePackerDebugCreateImageFromTileImage(apImage* _image, int tile_ima
     return mem;
 }
 
-void apTilePackerSetDefaultOptions(apTilePackOptions* options)
+void apTilePackerSetDefaultOptions(apTilePackerOptions* options)
 {
-    memset(options, 0, sizeof(apTilePackOptions));
+    memset(options, 0, sizeof(apTilePackerOptions));
     options->tile_size = 16;
     options->padding = 1;
     options->alpha_threshold = 1;
 }
 
-apPacker* apTilePackerCreate(apTilePackOptions* options)
+apPacker* apTilePackerCreate(apTilePackerOptions* options)
 {
     apTilePacker* packer = (apTilePacker*)malloc(sizeof(apTilePacker));
     memset(packer, 0, sizeof(apTilePacker));

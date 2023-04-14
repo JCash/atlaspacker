@@ -14,12 +14,12 @@ typedef struct
     int     tile_size;          // The size in texels. Default 16
     int     padding;            // Internal padding for each image. Default 1
     int     alpha_threshold;    // values below or equal to this threshold are considered transparent. (range 0-255)
-} apTilePackOptions;
+} apTilePackerOptions;
 
 #pragma options align=reset
 
-void      apTilePackerSetDefaultOptions(apTilePackOptions* options);
-apPacker* apTilePackerCreate(apTilePackOptions* options);
+void      apTilePackerSetDefaultOptions(apTilePackerOptions* options);
+apPacker* apTilePackerCreate(apTilePackerOptions* options);
 void      apTilePackerDestroy(apPacker* packer);
 int       apTilePackerGetTileSize(apPacker* packer);
 
