@@ -1,4 +1,5 @@
 #include <memory.h>
+#include <stdlib.h> // atoi
 
 #define JC_TEST_IMPLEMENTATION
 #include <jc_test.h>
@@ -323,7 +324,7 @@ static int FileIterator(void* _ctx, const char* path)
     return 1;
 }
 
-static int TestStandalone(const char* dir_path, const char* outname)
+static int TestStandalone(const char* dir_path, const char* outname, apOptions* options, apTilePackOptions* packer_options)
 {
     printf("DIR PATH: %s\n", dir_path);
 
@@ -344,15 +345,9 @@ static int TestStandalone(const char* dir_path, const char* outname)
     SortImages(images.Begin(), num_images);
 
     tstart = GetTime();
-    apTilePackOptions packer_options;
-    memset(&packer_options, 0, sizeof(packer_options));
 
-    packer_options.tile_size = 16; // the default
-
-    apPacker* packer = apTilePackerCreate(&packer_options);
-
-    apOptions options;
-    apContext* ctx = apCreate(&options, packer);
+    apPacker* packer = apTilePackerCreate(packer_options);
+    apContext* ctx = apCreate(options, packer);
 
     uint64_t t_add_images = 0;
     uint64_t t_create_hull_images = 0;
@@ -514,12 +509,43 @@ int main(int argc, char **argv)
 {
     if (argc > 1)
     {
-        const char* dir_path = argv[1];
+        const char* dir_path = 0;
         const char* outname = "standalone";
-        if (argc > 2)
-            outname = argv[2];
 
-        return TestStandalone(dir_path, outname);
+        apOptions options;
+        memset(&options, 0, sizeof(options));
+
+        apTilePackOptions packer_options;
+        memset(&packer_options, 0, sizeof(packer_options));
+
+#define CHECK_NAME(_SHORT, _LONG)      if (strcmp(_SHORT, argv[i])==0 || strcmp(_LONG, argv[i])==0)
+
+        for (int i = 1; i < argc; ++i)
+        {
+            printf("%d %s\n", i, argv[i]);
+
+            CHECK_NAME("-t", "--tile_size") { packer_options.tile_size       = atoi(argv[++i]); continue; }
+            CHECK_NAME("-a", "--alpha")     { packer_options.alpha_threshold = atoi(argv[++i]); continue; }
+            CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
+            CHECK_NAME("-d", "--dir")       { dir_path        = argv[++i]; continue; }
+            CHECK_NAME("-o", "--output")    { outname         = argv[++i]; continue; }
+            dir_path = argv[i];
+        }
+
+#undef CHECK_NAME
+
+        printf("Dir:                %s\n", dir_path?dir_path:"none");
+        printf("Output:             %s\n", outname);
+        printf("tile size:          %d\n", packer_options.tile_size);
+        printf("padding:            %d\n", packer_options.padding);
+        printf("alpha threshold:    %d\n", packer_options.alpha_threshold);
+
+        if (!dir_path)
+        {
+            printf("No directory specified!");
+            return 1;
+        }
+        return TestStandalone(dir_path, outname, &options, &packer_options);
     }
 
     jc_test_init(&argc, argv);
