@@ -741,6 +741,7 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
         if (!tile_image)
         {
             apTilePackerCreateTileImageFromImageData(packer, apimage);
+            apTilePackerCreateRotatedTileImages(packer, apimage);
             tile_image = apimage->images[0];
         }
 
@@ -777,16 +778,6 @@ printf("Creating page: %d x %d\n", page->page->dimensions.width, page->page->dim
 
 // printf("packing...\n");
 // printf("  page size: %d x %d\n", page->page->dimensions.width, page->page->dimensions.height);
-    for (int i = 0; i < ctx->num_images; ++i)
-    {
-        apTilePackerImage* image = (apTilePackerImage*)ctx->images[i];
-        if (!image->num_images)
-        {
-            apTilePackerCreateTileImageFromImageData(packer, image);
-        }
-        apTilePackerCreateRotatedTileImages(packer, image);
-    }
-
     // In order to fill in all tiny gaps, we keep the previous area in the page image
     apRect prio_area = { {0, 0}, {0, 0} };
     apRect* p_prio_area = 0;
