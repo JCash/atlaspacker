@@ -2,11 +2,11 @@
 
 ## Overview
 
-The goal of this atlas packer algorithm was to see if it was feasible to get good atlas packing of images with concave shapes, and at the same time to it in an efficient manner.
+The goal of this atlas packer algorithm was to see if it was feasible to get good atlas packing of images with concave shapes, and at the same time do it in an efficient manner.
 
-The base idea was to do `"per pixel"` checks for an image in a brute force fashion to see what the performance as well as the result would be like.
+The base idea was to do `"per pixel"` checks for an image to see what the performance as well as the result would actually be like.
 
-As it turns out, it works quite well, with sub second generation of large atlases with reasonably tight packing.
+As it turns out, it works very well, with sub second generation of large atlases with reasonably tight packing.
 
 ## The algorithm
 
@@ -20,6 +20,7 @@ Each image is converted to a `tile image`, which is a black and white, scaled do
 It uses the configurable setting `tile_size` (e.g. 16) to convert each 16x16 block of texels into a `0` or a `1`. The `1` means that in that 16x16 block of texels in the original image, there is at least one texel that is non zero.
 
 _A 128x128 image of a triangle converted to a tile image with tile size 16:_
+<br>
 ![](./images/tileimage_tri.png)
 
 ### Rotated images
@@ -73,6 +74,12 @@ _Pseudo code for the overall algorithm_
 
     writeToAtlas(images)
 ```
+
+## Drawbacks
+
+As expected, smaller tile sizes (e.g. 4 or 8) increase the generation time a lot.
+
+The tiles introduce some unwanted waste of space as you increase the tile size (as expected).
 
 ## Examples
 
