@@ -45,7 +45,17 @@ function fitInPage(page, image)
     return false
 ```
 
+### Vertex generation
 
+For each tile image, we greedily fit boxes into the filled tiles, in order to minimize the number of boxes.
+
+Each box is then used to generate two triangles.
+
+_WIP begin_
+
+We store the list of vertices as well as an index list.
+
+_WIP end_
 ### All together
 
 _Pseudo code for the overall algorithm_
