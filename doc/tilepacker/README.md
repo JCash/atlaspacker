@@ -19,9 +19,17 @@ The algorithm first sorts the incoming images based on size in decreasing order.
 Each image is converted to a `tile image`, which is a black and white, scaled down version of the original image.
 It uses the configurable setting `tile_size` (e.g. 16) to convert each 16x16 block of texels into a `0` or a `1`. The `1` means that in that 16x16 block of texels in the original image, there is at least one texel that is non zero.
 
-_A 128x128 image of a triangle converted to a tile image with tile size 16:_
-<br>
-![](./images/tileimage_tri.png)
+_A 128x128 image of a triangle converted to a tile image with tile size 16, with 4 rotation: 0, 90, 180 and 270 degrees:_
+
+    0 0 0 1 1 0 0 0    0 0 0 0 0 0 1 1    1 1 1 1 1 1 1 1    1 1 0 0 0 0 0 0
+    0 0 0 1 1 0 0 0    0 0 0 0 1 1 1 1    1 1 1 1 1 1 1 1    1 1 1 1 0 0 0 0
+    0 0 1 1 1 1 0 0    0 0 1 1 1 1 1 1    0 1 1 1 1 1 1 0    1 1 1 1 1 1 0 0
+    0 0 1 1 1 1 0 0    1 1 1 1 1 1 1 1    0 1 1 1 1 1 1 0    1 1 1 1 1 1 1 1
+    0 1 1 1 1 1 1 0    1 1 1 1 1 1 1 1    0 0 1 1 1 1 0 0    1 1 1 1 1 1 1 1
+    0 1 1 1 1 1 1 0    0 0 1 1 1 1 1 1    0 0 1 1 1 1 0 0    1 1 1 1 1 1 0 0
+    1 1 1 1 1 1 1 1    0 0 0 0 1 1 1 1    0 0 0 1 1 0 0 0    1 1 1 1 0 0 0 0
+    1 1 1 1 1 1 1 1    0 0 0 0 0 0 1 1    0 0 0 1 1 0 0 0    1 1 0 0 0 0 0 0
+
 
 ### Rotated images
 
