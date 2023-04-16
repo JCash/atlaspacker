@@ -107,5 +107,5 @@ _The timings are taken on my Macbook M1 Pro 2021_
 Credits:
 * All the source images are downloaded from [Kenney Assets](https://www.kenney.nl/assets?q=2d)
 
-_4812 images, generating a 8192x4096 image, using tile_size: 16, in <400 ms_
+_4812 images, generating a 8192x4096 image, using tile_size: 16, in ~170 ms_
 ![](./images/example_8k.png)

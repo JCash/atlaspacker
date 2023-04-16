@@ -591,7 +591,7 @@ static int apTilePackerFitImageAtPos(apTileImage* page_image, int px, int py, in
 
     // The tight rect of the image says it won't fit here
     if (pwidth < twidth || pheight < theight)
-        return 0;
+        return pwidth;
 
     int start_x = image->rect.pos.x;
     int end_x = start_x + twidth;
@@ -615,7 +615,13 @@ static int apTilePackerFitImageAtPos(apTileImage* page_image, int px, int py, in
                 // we only fail if we wish to put a byte there, and it's already occupied
                 if (dst_bit & src_bit)
                 {
-                    return 0;
+                    // We have a collision, now count forward to see how many tiles we can skip
+                    int skip = 1;
+                    for (int x = dx+1; x < page_twidth && dstrow[x] != 0; ++x)
+                    {
+                        ++skip;
+                    }
+                    return skip;
                 }
             }
             else
@@ -624,7 +630,8 @@ static int apTilePackerFitImageAtPos(apTileImage* page_image, int px, int py, in
             }
         }
     }
-    return 1;
+    // We could fit the entire image, so we skip no texels
+    return 0;
 }
 
 
@@ -641,15 +648,20 @@ static int apTilePackerFitImageInRect(apTileImage* page_image, apTileImage* imag
         for (int dx = px; dx < pwidth; ++dx)
         {
             int pwidth_left = pwidth - dx;
-            int fit = apTilePackerFitImageAtPos(page_image, dx, dy, pwidth_left, pheight_left, image, 0);
+            int skip = apTilePackerFitImageAtPos(page_image, dx, dy, pwidth_left, pheight_left, image, 0);
 
-            if (fit) {
+            if (skip == 0) {
                 // It fit, so now we write it to the page
                 apTilePackerFitImageAtPos(page_image, dx, dy, pwidth_left, pheight_left, image, 1);
 
                 pos->x = dx - image->rect.pos.x;
                 pos->y = dy - image->rect.pos.y;
                 return 1;
+            }
+            else
+            {
+                --dx; // counter act the loop increment
+                dx += skip;
             }
         }
     }
