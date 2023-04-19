@@ -311,15 +311,6 @@ static void BoxToVertices(void* _ctx, int x, int y, int width, int height)
         { x,         y + height }
     };
 
-    for (int i = 0; i < 4; ++i)
-    {
-        // From [(0,0), (width, height)] to [(-0.5,-0.5), (0.5,0.5)]
-        box[i].x = box[i].x / fwidth - 0.5f;
-        box[i].y = box[i].y / fheight - 0.5f;
-        box[i].x = apConvexHullRoundEdge(box[i].x);
-        box[i].y = apConvexHullRoundEdge(box[i].y);
-    }
-
     vertices[ctx->size++] = box[0];
     vertices[ctx->size++] = box[1];
     vertices[ctx->size++] = box[2];

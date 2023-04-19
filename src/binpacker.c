@@ -331,7 +331,7 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
         if (fit)
         {
             image->rotation = image->placement.size.width == image->dimensions.width ? 0 : 90;
-            image->page = page->page->index;
+            apPageAddImage(page->page, image);
 
 // printf("  rotation: %d   pos: %d, %d  %d, %d\n", image->rotation,
 //         image->placement.pos.x, image->placement.pos.y, image->placement.size.width, image->placement.size.height);

@@ -528,6 +528,7 @@ int main(int argc, char **argv)
             CHECK_NAME("-t", "--tile_size") { packer_options.tile_size       = atoi(argv[++i]); continue; }
             CHECK_NAME("-a", "--alpha")     { packer_options.alpha_threshold = atoi(argv[++i]); continue; }
             CHECK_NAME("-p", "--padding")   { packer_options.padding         = atoi(argv[++i]); continue; }
+            CHECK_NAME("-n", "--no_rotate") { packer_options.no_rotate       = atoi(argv[++i]); continue; }
             CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
             CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }
             CHECK_NAME("-o", "--output")    { outname                        = argv[++i]; continue; }
@@ -541,6 +542,7 @@ int main(int argc, char **argv)
         printf("page_size:          %d\n", options.page_size);
         printf("tile size:          %d\n", packer_options.tile_size);
         printf("padding:            %d\n", packer_options.padding);
+        printf("no_rotate:          %d\n", packer_options.no_rotate);
         printf("alpha threshold:    %d\n", packer_options.alpha_threshold);
 
         if (!dir_path)

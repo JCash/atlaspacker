@@ -3,6 +3,7 @@
 // @2021-@2023 Mathias Westerdahl
 
 #include <atlaspacker/tilepacker.h>
+#include <atlaspacker/convexhull.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -43,12 +44,11 @@ typedef struct
     // position after placement
     apPos pos;
 
-    // Hull
-    apPosf* vertices; // owned by caller
-    int num_vertices;
+    apPos offset;       // placement adjustment if original image is not a multiple of tile size
+    int         fit_index; // Which tile image was fit into the page
+    int         padding;
 
-    int      padding;
-    uint8_t* data;   // May be 0 if there is no padded image
+    uint8_t*    data;   // 0 if there is no padded image
 } apTilePackerImage;
 
 typedef struct apTilePackerPage
@@ -718,12 +718,12 @@ static int apTilePackerFitImage(apTileImage* page_image, apTileImage* image, apR
 
 static int apTilePackerPackImage(apTileImage* page_image, apTilePackerImage* image, apRect* prio_area, int allow_rotate)
 {
-
     // Try the rotated variations variation of the image
     for (int i = 0; i < image->num_images; ++i)
     {
         if (apTilePackerFitImage(page_image, image->images[i], prio_area, &image->pos))
         {
+            image->fit_index = i;
             return i;
         }
         if (!allow_rotate)
@@ -737,6 +737,8 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
     apTilePacker* packer = (apTilePacker*)_packer;
 
     uint64_t timestart = apGetTime();
+
+    uint64_t t_total_start = timestart;
 
     // Create tile images
     for (int i = 0; i < ctx->num_images; ++i)
@@ -895,10 +897,10 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
             continue;
         }
 
-        apTileImage* fit_image = image->images[image_index];
-
-        image->super.page = page->page->index;
+        apTileImage* fit_image = image->images[image->fit_index];
         image->super.rotation = fit_image->rotation;
+
+        apPageAddImage(page->page, (apImage*)image);
 
         int width = image->super.width;
         int height = image->super.height;
@@ -911,10 +913,10 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
             height = image->super.width;
         }
 
-        int offsetx = use_offsetx * (fit_image->twidth * tile_size - width);
-        int offsety = use_offsety * (fit_image->theight * tile_size - height);
-        image->super.placement.pos.x = image->pos.x * tile_size + offsetx;
-        image->super.placement.pos.y = image->pos.y * tile_size + offsety;
+        image->offset.x = use_offsetx * (fit_image->twidth * tile_size - width);
+        image->offset.y = use_offsety * (fit_image->theight * tile_size - height);
+        image->super.placement.pos.x = image->pos.x * tile_size + image->offset.x;
+        image->super.placement.pos.y = image->pos.y * tile_size + image->offset.y;
 
         // also correct for any padding
         image->super.placement.pos.x += image->padding;
@@ -933,7 +935,49 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
         //DebugPrintTileImage(page->image);
     }
 
+    uint64_t t_gen_vertices = 0;
+    int t_num_vertices = 0;
+
+    // Create vertices
+    for (int i = 0; i < ctx->num_images; ++i)
+    {
+        apImage* apimage = ctx->images[i];
+        apTilePackerImage* image = (apTilePackerImage*)apimage;
+
+        timestart = apGetTime();
+
+        apTileImage* tile_image = image->images[image->fit_index];
+        apimage->vertices = apHullFromImage(tile_image->bytes, tile_image->twidth, tile_image->theight, &apimage->num_vertices);
+
+        // printf("image->size %d %d\n", image->super.width, image->super.height);
+        // printf("image pos %d, %d\n", image->super.placement.pos.x, image->super.placement.pos.y);
+        // printf("image->padding %d\n", image->padding);
+        // printf("image->offset %d %d\n", image->offset.x, image->offset.y);
+
+        // convert from tile space to page space
+        int twidth = tile_image->twidth;
+        int theight = tile_image->theight;
+
+        //printf("tile width/height %d %d\n", twidth, theight);
+
+        for (int v = 0; v < apimage->num_vertices; ++v)
+        {
+            apPosf* p = &apimage->vertices[v]; // points are in tile space
+            p->x = (image->super.placement.pos.x - image->padding - image->offset.x) + tile_size * p->x;
+            p->y = (image->super.placement.pos.y - image->padding - image->offset.y) + tile_size * p->y;
+        }
+
+        timeend = apGetTime();
+        t_num_vertices += apimage->num_vertices;
+        t_gen_vertices += timeend - timestart;
+    }
+
+
+    uint64_t t_total_end = apGetTime();
+
     printf("   Pack tile images took %.2f ms\n", t_pack_image/1000.0f);
+    printf("   Generating %d vertices took %.2f ms\n", t_num_vertices, t_gen_vertices/1000.0f);
+    printf("   Packing atlas took %.2f ms\n", (t_total_end-t_total_start)/1000.0f);
 }
 
 uint8_t* apTilePackerDebugCreateImageFromTileImage(apImage* _image, int tile_image_index, int tile_size)

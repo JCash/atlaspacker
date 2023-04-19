@@ -14,7 +14,7 @@ static void plot(int x, int y, uint8_t* image, int width, int height, int nchann
 }
 
 // http://members.chello.at/~easyfilter/bresenham.html
-void draw_line(int x0, int y0, int x1, int y1, uint8_t* image, int width, int height, int nchannels, uint8_t* color)
+void draw_line(int x0, int y0, int x1, int y1, uint8_t* image, int width, int height, int nchannels, const uint8_t* color)
 {
     int dx =  abs(x1-x0), sx = x0<x1 ? 1 : -1;
     int dy = -abs(y1-y0), sy = y0<y1 ? 1 : -1;

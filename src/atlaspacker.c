@@ -40,6 +40,7 @@ void apDestroy(apContext* ctx)
 {
     for (int i = 0; i < ctx->num_images; ++i)
     {
+        free((void*)ctx->images[i]->vertices);
         ctx->packer->destroyImage(ctx->packer, ctx->images[i]);
     }
     free((void*)ctx->images);
@@ -77,6 +78,18 @@ int apGetNumPages(apContext* ctx)
     return ctx->num_pages;
 }
 
+apPage* apGetPage(apContext* ctx, int index)
+{
+    apPage* page = ctx->pages;
+    while (page)
+    {
+        if (page->index == index)
+            return page;
+        page = page->next;
+    }
+    return 0;
+}
+
 apPage* apAllocPage(apContext* ctx)
 {
     apPage* page = (apPage*)malloc(sizeof(apPage));
@@ -93,6 +106,27 @@ apPage* apAllocPage(apContext* ctx)
         prev->next = page;
     }
     return page;
+}
+
+void apPageAddImage(apPage* page, apImage* image)
+{
+    image->page = page->index;
+
+    if (!page->last_image)
+    {
+        page->first_image = (apImage*)image;
+        page->last_image = (apImage*)image;
+    }
+    else
+    {
+        page->last_image->next = (apImage*)image;
+        page->last_image = (apImage*)image;
+    }
+}
+
+apImage* apPageGetFirstImage(apPage* page)
+{
+    return page->first_image;
 }
 
 apPos apRotate(int x, int y, int width, int height, int rotation)
@@ -120,93 +154,10 @@ apPos apRotate(int x, int y, int width, int height, int rotation)
     return pos;
 }
 
-static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
-                        const uint8_t* source, int source_width, int source_height, int source_channels,
-                        int x, int y, int rotation);
-
-static apPage* apFindPage(apPage* page, int index)
-{
-    while (page)
-    {
-        if (page->index == index)
-            return page;
-        page = page->next;
-    }
-    return 0;
-}
-
-uint8_t* apRenderPage(apContext* ctx, int page_index, int* width, int* height, int* channels)
-{
-    apPage* page = apFindPage(ctx->pages, page_index);
-    int w = page->dimensions.width;
-    int h = page->dimensions.height;
-    int c = ctx->num_channels;
-    uint8_t* output = (uint8_t*)malloc(w * h * c);
-    memset(output, 0, w * h * c);
-
-    //printf("rendering page %d at %d x %d\n", page_index, w, h);
-
-// DEBUG BACKGROUND RENDERING
-    int tile_size = 16;
-    for (int y = 0; y < h; ++y)
-    {
-        for (int x = 0; x < w; ++x)
-        {
-            int tx = x / tile_size;
-            int ty = y / tile_size;
-            int odd = ((tx&1) && !(ty&1)) | (!(tx&1) && (ty&1));
-
-            // uint8_t color_odd[4] = {255,255,255,128};
-            // uint8_t color_even[4] = {0,0,0,128};
-            // uint8_t color_odd[4] = {32,32,32,255};
-            // uint8_t color_even[4] = {16,16,16,255};
-            uint8_t color_odd[4] = {64,96,64,255};
-            uint8_t color_even[4] = {32,64,32,255};
-
-            uint8_t* color = color_even;
-
-            if (odd)
-                color = color_odd;
-
-            for (int i = 0; i < c; ++i)
-                output[y * (w*c) + (x*c) + i ] = color[i];
-        }
-    }
-
-
-    int num_rendered = 0;
-    for (int i = 0; i < ctx->num_images; ++i)
-    {
-        apImage* image = ctx->images[i];
-        if (image->page != page_index)
-            continue;
-
-        //printf("rendering image %s:%d at %d x %d\n", image->path, image->rotation, image->placement.pos.x, image->placement.pos.y);
-
-        apCopyRGBA(output, w, h, c,
-                    image->data, image->width, image->height, image->channels,
-                    image->placement.pos.x, image->placement.pos.y, image->rotation);
-
-        ++num_rendered;
-    }
-    if (num_rendered == 0)
-    {
-        printf("No images rendered on page %d\n", page_index);
-        free((void*)output);
-        return 0;
-    }
-
-    *width = w;
-    *height = h;
-    *channels = c;
-    return output;
-}
-
-
 // Copy the source image into the target image
 // Can handle cases where the target texel is outside of the destination
 // Transparent source texels are ignored
-static void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
+void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
                         const uint8_t* source, int source_width, int source_height, int source_channels,
                         int dest_x, int dest_y, int rotation)
 {

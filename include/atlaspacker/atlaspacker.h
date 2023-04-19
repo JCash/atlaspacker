@@ -27,13 +27,8 @@ typedef struct {
     apSize  size;
 } apRect;
 
-typedef struct apPage {
-    struct apPage*  next;
-    apSize          dimensions;
-    int             index;
-} apPage;
-
-typedef struct {
+typedef struct apImage {
+    struct apImage* next;
     const char*     path;
     const uint8_t*  data;
     apSize          dimensions;  // Original dimensions
@@ -43,7 +38,18 @@ typedef struct {
     int             channels;
     int             rotation;    // Degrees CCW: 0, 90, 180, 270
     int             page;
+
+    apPosf*         vertices;
+    int             num_vertices;
 } apImage;
+
+typedef struct apPage {
+    struct apPage*  next;
+    struct apImage* first_image;
+    struct apImage* last_image;
+    apSize          dimensions;
+    int             index;
+} apPage;
 
 typedef struct
 {
@@ -80,11 +86,15 @@ void        apPackImages(apContext* ctx);
 
 // Get number of pages
 int         apGetNumPages(apContext* ctx);
+apPage*     apGetPage(apContext* ctx, int page_index);
+apImage*    apPageGetFirstImage(apPage* page);
 
-// returns an RGBA texture. Caller owns the memory
-uint8_t*    apRenderPage(apContext* ctx, int page, int* width, int* height, int* channels);
 
-//void        apRenderLayout(apContext* ctx, void (*callback)(int page, apImage* image));
+// Render functions
+
+void        apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channels,
+                        const uint8_t* source, int source_width, int source_height, int source_channels,
+                        int dest_x, int dest_y, int rotation);
 
 // Creates an image where all the rgba -> 0 or 1.
 // It also dilates the image if necessary.
@@ -96,7 +106,10 @@ uint8_t*    apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t hei
 
 /////////////////////////////////////////////////////////
 // Internal
+
 apPage*     apAllocPage(apContext* ctx);
+// links the image with a certain page
+void        apPageAddImage(apPage* page, apImage* image);
 
 uint64_t    apGetTime(); // for profiling
 

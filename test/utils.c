@@ -95,16 +95,95 @@ void SortImages(Image** images, int num_images)
     qsort(images, (size_t)num_images, sizeof(images[0]), (QsortFn)CompareImages);
 }
 
+
+// typedef void (*FPageIterateCallback)(void* ctx, apImage* image);
+// void apPageIterateImages(apContext* ctx, int page, FPageIterateCallback iter, void* iter_ctx)
+
+typedef struct
+{
+    int width;
+    int height;
+    int channels;
+    uint8_t* data;
+} OutputImageCtx;
+
+static void DrawTriangles(int width, int height, int channels, uint8_t* data,
+                           apPos pos, apSize size, const apPosf* vertices, int num_vertices)
+{
+
+// printf("image pos: %d, %d\n", pos.x, pos.y);
+// printf("image size: %d, %d\n", size.width, size.height);
+
+    const uint8_t color[4] = {255,0,255,255};
+    for (int i = 0; i < num_vertices/3; ++i, vertices += 3)
+    {
+        apPos p0 = { vertices[0].x, vertices[0].y };
+        apPos p1 = { vertices[1].x, vertices[1].y };
+        apPos p2 = { vertices[2].x, vertices[2].y };
+        draw_line(p0.x, p0.y, p1.x, p1.y, data, width, height, channels, color);
+        draw_line(p1.x, p1.y, p2.x, p2.y, data, width, height, channels, color);
+        draw_line(p2.x, p2.y, p0.x, p0.y, data, width, height, channels, color);
+    }
+}
+
 int DebugWriteOutput(apContext* ctx, const char* pattern)
 {
     int num_pages = apGetNumPages(ctx);
     for (int i = 0; i < num_pages; ++i)
     {
-        int width, height, channels;
-        uint8_t* output = apRenderPage(ctx, i, &width, &height, &channels);
-        if (!output)
+        apPage* page = apGetPage(ctx, i);
+
+        int width = page->dimensions.width;
+        int height = page->dimensions.height;
+        int channels = ctx->num_channels;
+
+        uint32_t size = width * height * channels;
+        uint8_t* output = (uint8_t*)malloc(size);
+        memset(output, 0, size);
+
+        //uint8_t* output = apRenderPage(ctx, i, &width, &height, &channels);
+
+// DEBUG BACKGROUND RENDERING
+    int tile_size = 16;
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
         {
-            return 0;
+            int tx = x / tile_size;
+            int ty = y / tile_size;
+            int odd = ((tx&1) && !(ty&1)) | (!(tx&1) && (ty&1));
+
+            // uint8_t color_odd[4] = {255,255,255,128};
+            // uint8_t color_even[4] = {0,0,0,128};
+            uint8_t color_odd[4] = {32,32,32,255};
+            uint8_t color_even[4] = {16,16,16,255};
+            // uint8_t color_odd[4] = {64,96,64,255};
+            // uint8_t color_even[4] = {32,64,32,255};
+
+            uint8_t* color = color_even;
+
+            if (odd)
+                color = color_odd;
+
+            for (int i = 0; i < channels; ++i)
+                output[y * (width*channels) + (x*channels) + i ] = color[i];
+        }
+    }
+
+
+        apImage* image = apPageGetFirstImage(page);
+        while(image)
+        {
+            apCopyRGBA(output, width, height, channels,
+                    image->data, image->width, image->height, image->channels,
+                    image->placement.pos.x, image->placement.pos.y, image->rotation);
+
+            apSize size = { image->width, image->height };
+            DrawTriangles(width, height, channels, output,
+                            image->placement.pos, size,
+                            image->vertices, image->num_vertices);
+
+            image = image->next;
         }
 
         // we use tga here to remove the compression time from the tests
