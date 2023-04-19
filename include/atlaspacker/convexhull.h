@@ -18,3 +18,5 @@ void apHullFindLargestBoxes(int width, int height, uint8_t* data, APHullBoxCallb
 
 // May return 0 if it couldn't calculate a hull (i.e. if the image is empty)
 apPosf* apHullFromImage(uint8_t* image, int width, int height, int* num_vertices);
+
+apPosf* apCreateBoxVertices(apPos pos, apSize size, int* num_vertices);

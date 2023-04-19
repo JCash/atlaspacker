@@ -331,3 +331,24 @@ apPosf* apHullFromImage(uint8_t* image, int width, int height, int* num_vertices
     *num_vertices = ctx.size;
     return ctx.mem;
 }
+
+apPosf* apCreateBoxVertices(apPos pos, apSize size, int* num_vertices)
+{
+    apPosf* vertices = (apPosf*)malloc(sizeof(apPosf)*6);
+    *num_vertices = 6;
+
+    apPosf box[4] = {
+        { pos.x,                pos.y },
+        { pos.x + size.width,   pos.y },
+        { pos.x + size.width,   pos.y + size.height },
+        { pos.x,                pos.y + size.height }
+    };
+
+    vertices[0] = box[0];
+    vertices[1] = box[1];
+    vertices[2] = box[2];
+    vertices[3] = box[0];
+    vertices[4] = box[2];
+    vertices[5] = box[3];
+    return vertices;
+}

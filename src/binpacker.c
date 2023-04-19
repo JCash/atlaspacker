@@ -5,6 +5,7 @@
 // For reference: http://pds25.egloos.com/pds/201504/21/98/RectangleBinPack.pdf
 
 #include <atlaspacker/binpacker.h>
+#include <atlaspacker/convexhull.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
@@ -332,6 +333,15 @@ static void apBinPackPackImages(apPacker* _packer, apContext* ctx)
         {
             image->rotation = image->placement.size.width == image->dimensions.width ? 0 : 90;
             apPageAddImage(page->page, image);
+
+            apSize size = {image->width, image->height};
+            if (image->rotation)
+            {
+                size.width = image->height;
+                size.height = image->width;
+            }
+
+            image->vertices = apCreateBoxVertices(image->placement.pos, size, &image->num_vertices);
 
 // printf("  rotation: %d   pos: %d, %d  %d, %d\n", image->rotation,
 //         image->placement.pos.x, image->placement.pos.y, image->placement.size.width, image->placement.size.height);

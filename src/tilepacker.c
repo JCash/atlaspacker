@@ -949,16 +949,9 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
         apTileImage* tile_image = image->images[image->fit_index];
         apimage->vertices = apHullFromImage(tile_image->bytes, tile_image->twidth, tile_image->theight, &apimage->num_vertices);
 
-        // printf("image->size %d %d\n", image->super.width, image->super.height);
-        // printf("image pos %d, %d\n", image->super.placement.pos.x, image->super.placement.pos.y);
-        // printf("image->padding %d\n", image->padding);
-        // printf("image->offset %d %d\n", image->offset.x, image->offset.y);
-
         // convert from tile space to page space
         int twidth = tile_image->twidth;
         int theight = tile_image->theight;
-
-        //printf("tile width/height %d %d\n", twidth, theight);
 
         for (int v = 0; v < apimage->num_vertices; ++v)
         {
