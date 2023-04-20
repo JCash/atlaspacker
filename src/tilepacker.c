@@ -947,17 +947,35 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
         timestart = apGetTime();
 
         apTileImage* tile_image = image->images[image->fit_index];
-        apimage->vertices = apHullFromImage(tile_image->bytes, tile_image->twidth, tile_image->theight, &apimage->num_vertices);
-
-        // convert from tile space to page space
-        int twidth = tile_image->twidth;
-        int theight = tile_image->theight;
-
-        for (int v = 0; v < apimage->num_vertices; ++v)
+        if (!apimage->vertices)
         {
-            apPosf* p = &apimage->vertices[v]; // points are in tile space
-            p->x = (image->super.placement.pos.x - image->padding - image->offset.x) + tile_size * p->x;
-            p->y = (image->super.placement.pos.y - image->padding - image->offset.y) + tile_size * p->y;
+            apimage->vertices = apHullFromImage(tile_image->bytes, tile_image->twidth, tile_image->theight, &apimage->num_vertices);
+
+            // convert from tile space to page space
+            int twidth = tile_image->twidth;
+            int theight = tile_image->theight;
+
+            for (int v = 0; v < apimage->num_vertices; ++v)
+            {
+                apPosf* p = &apimage->vertices[v]; // points are in tile space
+                p->x = (image->super.placement.pos.x - image->padding - image->offset.x) + tile_size * p->x;
+                p->y = (image->super.placement.pos.y - image->padding - image->offset.y) + tile_size * p->y;
+            }
+        }
+        else
+        {
+            // Precalculated convex hull, in range [-0.5, 0.5]
+            float width = image->super.width;
+            float height = image->super.height;
+            float half_width = width * 0.5f;
+            float half_height = height * 0.5f;
+            for (int v = 0; v < apimage->num_vertices; ++v)
+            {
+                apPosf* p = &apimage->vertices[v];
+                p->x = apimage->placement.pos.x - image->padding - image->offset.x + width * (p->x + 0.5f);
+                p->y = apimage->placement.pos.y - image->padding - image->offset.y + height * (p->y + 0.5f);
+            }
+
         }
 
         timeend = apGetTime();

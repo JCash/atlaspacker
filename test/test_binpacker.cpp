@@ -292,6 +292,11 @@ int main(int argc, char **argv)
             CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
             CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }
             CHECK_NAME("-o", "--output")    { outname                        = argv[++i]; continue; }
+            if (argv[i][0] == '-')
+            {
+                printf("Unknown switch '%s'\n", argv[i]);
+                return 1;
+            }
             dir_path = argv[i];
         }
 

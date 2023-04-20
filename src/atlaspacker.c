@@ -350,6 +350,7 @@ int apOverlapTest2D(const apPosf* a, int sizea, const apPosf* b, int sizeb)
     return 1;
 }
 
+// Creates a black and white image (optinally dilated), for easier convex hull creation
 uint8_t* apCreateHullImage(const uint8_t* image, uint32_t width, uint32_t height, uint32_t num_channels, int dilate)
 {
     uint8_t* out = (uint8_t*)malloc(width*height);

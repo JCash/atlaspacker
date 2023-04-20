@@ -13,6 +13,17 @@ extern "C" {
 #include "utils.h"
 }
 
+struct AppOptions
+{
+    int mode; // TODO: use an enum from the tilepacker.h
+};
+
+static void AppSetDefaultOptions(AppOptions* app_options)
+{
+    memset(app_options, 0, sizeof(AppOptions));
+    app_options->mode = 1;
+}
+
 TEST(PackerTilePack, OverlapTest)
 {
     apPosf box1[4] = {
@@ -327,7 +338,7 @@ static int FileIterator(void* _ctx, const char* path)
     return 1;
 }
 
-static int TestStandalone(const char* dir_path, const char* outname, apOptions* options, apTilePackerOptions* packer_options)
+static int TestStandalone(const char* dir_path, const char* outname, AppOptions* app_options, apOptions* options, apTilePackerOptions* packer_options)
 {
     printf("DIR PATH: %s\n", dir_path);
 
@@ -357,7 +368,7 @@ static int TestStandalone(const char* dir_path, const char* outname, apOptions* 
     uint64_t t_convex_hulls = 0;
     uint64_t t_tile_image_from_triangles = 0;
 
-    int mode = 1; // 0: convex hull, 1: boxes
+    int mode = app_options->mode; // 0: convex hull, 1: boxes
     for (int i = 0; i < num_images; ++i)
     {
         Image* image = images[(uint32_t)i];
@@ -385,6 +396,8 @@ static int TestStandalone(const char* dir_path, const char* outname, apOptions* 
         if (mode == 0)
         {
             tsubstart = GetTime();
+
+// TODO: Move this code into the tilepacker itself
 
             int dilate = 0;
             hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
@@ -418,6 +431,9 @@ static int TestStandalone(const char* dir_path, const char* outname, apOptions* 
                 triangles[t*3+1] = vertices[1+t+0];
                 triangles[t*3+2] = vertices[1+t+1];
             }
+
+            apimage->vertices = triangles;
+            apimage->num_vertices = num_triangles*3;
 
             tsubstart = GetTime();
 
@@ -467,7 +483,6 @@ static int TestStandalone(const char* dir_path, const char* outname, apOptions* 
     //     free((void*)dbgimage);
     // }
 
-        free((void*)triangles);
         free((void*)vertices);
         free((void*)hull_image);
     }
@@ -515,6 +530,9 @@ int main(int argc, char **argv)
         const char* dir_path = 0;
         const char* outname = "standalone";
 
+        AppOptions app_options;
+        AppSetDefaultOptions(&app_options);
+
         apOptions options;
         apSetDefaultOptions(&options);
 
@@ -532,6 +550,12 @@ int main(int argc, char **argv)
             CHECK_NAME("-s", "--size")      { options.page_size              = atoi(argv[++i]); continue; }
             CHECK_NAME("-d", "--dir")       { dir_path                       = argv[++i]; continue; }
             CHECK_NAME("-o", "--output")    { outname                        = argv[++i]; continue; }
+            CHECK_NAME("-m", "--mode")      { app_options.mode                       = atoi(argv[++i]); continue; }
+            if (argv[i][0] == '-')
+            {
+                printf("Unknown switch '%s'\n", argv[i]);
+                return 1;
+            }
             dir_path = argv[i];
         }
 
@@ -540,6 +564,7 @@ int main(int argc, char **argv)
         printf("Dir:                %s\n", dir_path?dir_path:"none");
         printf("Output:             %s\n", outname);
         printf("page_size:          %d\n", options.page_size);
+        printf("tilepacker mode:    %d\n", app_options.mode);
         printf("tile size:          %d\n", packer_options.tile_size);
         printf("padding:            %d\n", packer_options.padding);
         printf("no_rotate:          %d\n", packer_options.no_rotate);
@@ -550,7 +575,7 @@ int main(int argc, char **argv)
             printf("No directory specified!");
             return 1;
         }
-        return TestStandalone(dir_path, outname, &options, &packer_options);
+        return TestStandalone(dir_path, outname, &app_options, &options, &packer_options);
     }
 
     jc_test_init(&argc, argv);
