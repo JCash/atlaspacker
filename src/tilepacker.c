@@ -1,6 +1,6 @@
 // https://github.com/JCash/atlaspacker
 // License: MIT
-// @2021-@2023 Mathias Westerdahl
+// @2021-@2024 Mathias Westerdahl
 
 #include <atlaspacker/tilepacker.h>
 #include <atlaspacker/convexhull.h>
@@ -952,8 +952,8 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
             apimage->vertices = apHullFromImage(tile_image->bytes, tile_image->twidth, tile_image->theight, &apimage->num_vertices);
 
             // convert from tile space to page space
-            int twidth = tile_image->twidth;
-            int theight = tile_image->theight;
+            // int twidth = tile_image->twidth;
+            // int theight = tile_image->theight;
 
             for (int v = 0; v < apimage->num_vertices; ++v)
             {
@@ -967,8 +967,8 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
             // Precalculated convex hull, in range [-0.5, 0.5]
             float width = image->super.width;
             float height = image->super.height;
-            float half_width = width * 0.5f;
-            float half_height = height * 0.5f;
+            // float half_width = width * 0.5f;
+            // float half_height = height * 0.5f;
             for (int v = 0; v < apimage->num_vertices; ++v)
             {
                 apPosf* p = &apimage->vertices[v];

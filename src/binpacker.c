@@ -1,6 +1,6 @@
 // https://github.com/JCash/atlaspacker
 // License: MIT
-// @2021-@2023 Mathias Westerdahl
+// @2021-@2024 Mathias Westerdahl
 
 // For reference: http://pds25.egloos.com/pds/201504/21/98/RectangleBinPack.pdf
 

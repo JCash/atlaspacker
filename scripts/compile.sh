@@ -103,6 +103,14 @@ function compile_c_file {
     run_cmd ${CC} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY ${ARCH} $CFLAGS -c ${name}
 }
 
+function compile_objc_file {
+    local name=$1
+    local basename=$(basename $name)
+    local prefix=$2
+    echo "$basename"
+    run_cmd ${CC} -o ${BUILD_DIR}/${prefix}${basename}.o $OPT $DISASSEMBLY ${ARCH} $CFLAGS -ObjC -c ${name}
+}
+
 function compile_lib {
     local name=$1
     local objectfile_prefix=$2

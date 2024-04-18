@@ -1,6 +1,6 @@
 // https://github.com/JCash/atlaspacker
 // License: MIT
-// @2021-@2023 Mathias Westerdahl
+// @2021-@2024 Mathias Westerdahl
 
 #include <atlaspacker/convexhull.h>
 #include <atlaspacker/atlaspacker.h>
@@ -299,8 +299,8 @@ static void BoxToVertices(void* _ctx, int x, int y, int width, int height)
         ctx->mem = realloc(ctx->mem, ctx->capacity * sizeof(apPosf));
     }
 
-    float fwidth = (float)ctx->width;
-    float fheight = (float)ctx->height;
+    // float fwidth = (float)ctx->width;
+    // float fheight = (float)ctx->height;
 
     apPosf* vertices = (apPosf*)ctx->mem;
 

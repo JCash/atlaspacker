@@ -1,0 +1,17 @@
+{
+    "sources": ["./spineboy"],
+    "img_prop": [
+      {
+        "name": "test.png",
+        "pivot": "13, 20"
+      }
+    ],
+    "packer": {
+      "options": {
+          "page_size": 1024
+      },
+      "type": "tilepacker",
+      "tilepacker": {
+      }
+    }
+}
