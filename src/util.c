@@ -236,3 +236,91 @@ uint8_t* ReadFile(const char* path, uint32_t* file_size)
 
 	return data;
 }
+
+
+Page* apRenderPages(apContext* context, int* num_pages, uint32_t debug_color)
+{
+    int channels = context->num_channels;
+    *num_pages = apGetNumPages(context);
+
+    Page* pages = (Page*)malloc(*num_pages * sizeof(Page));
+
+    for (int i = 0; i < *num_pages; ++i)
+    {
+        apPage* page = apGetPage(context, i);
+
+        int width = page->dimensions.width;
+        int height = page->dimensions.height;
+
+        uint32_t size = width * height * channels;
+        uint8_t* output = (uint8_t*)malloc(size);
+        memset(output, 0, size);
+
+        pages[i].width = width;
+        pages[i].height = height;
+        pages[i].channels = channels;
+        pages[i].data = output;
+
+        // TODO: Let the atlas packer render the page, together with the debug info
+        //uint8_t* output = apRenderPage(ctx, page, debug_color);
+
+// DEBUG BACKGROUND RENDERING
+        if (debug_color)
+        {
+            // Ask the packer to create an empty debug image of correct size
+            // We need this in order to properly render debug data that only the packer knows
+            // E.g. the tile size
+            // apPackerDebugDrawBackground(output, width, height, debug_color);
+        }
+        // int tile_size = 16;
+        // for (int y = 0; y < height; ++y)
+        // {
+        //     for (int x = 0; x < width; ++x)
+        //     {
+        //         int tx = x / tile_size;
+        //         int ty = y / tile_size;
+        //         int odd = ((tx&1) && !(ty&1)) | (!(tx&1) && (ty&1));
+
+        //         // uint8_t color_odd[4] = {255,255,255,128};
+        //         // uint8_t color_even[4] = {0,0,0,128};
+        //         uint8_t color_odd[4] = {32,32,32,255};
+        //         uint8_t color_even[4] = {16,16,16,255};
+        //         // uint8_t color_odd[4] = {64,96,64,255};
+        //         // uint8_t color_even[4] = {32,64,32,255};
+
+        //         uint8_t* color = color_even;
+
+        //         if (odd)
+        //             color = color_odd;
+
+        //         for (int i = 0; i < channels; ++i)
+        //             output[y * (width*channels) + (x*channels) + i ] = color[i];
+        //     }
+        // }
+
+
+        apImage* image = apPageGetFirstImage(page);
+        while(image)
+        {
+            apCopyRGBA(output, width, height, channels,
+                    image->data, image->width, image->height, image->channels,
+                    image->placement.pos.x, image->placement.pos.y, image->rotation);
+
+            // TODO: Add this to the debug part of the rendering
+            // apSize size = { image->width, image->height };
+            // DrawTriangles(width, height, channels, output,
+            //                 image->placement.pos, size,
+            //                 image->vertices, image->num_vertices);
+
+            image = image->next;
+        }
+
+        // // we use tga here to remove the compression time from the tests
+        // char path[64];
+        // snprintf(path, sizeof(path), "image_%s_%d.tga", pattern, i);
+        // int result = STBI_write_tga(path, width, height, channels, output);
+        // if (result)
+        //     printf("Wrote %s at %d x %d\n", path, width, height);
+    }
+    return pages;
+}

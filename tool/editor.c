@@ -1,6 +1,10 @@
 
 #include <stdint.h>
 
+// Editor related
+#include "state.h"
+#include "worker.h"
+
 #define SOKOL_APP_IMPL
 #define SOKOL_IMPL
 #define SOKOL_GLCORE33
@@ -30,17 +34,126 @@
 
 #include <atlaspacker/project.h>
 
-// Editor related
-#include "state.h"
-#include "worker.h"
-
 #include <unistd.h> // getcwd
 
+// TODO: Move this to AppState
 static struct {
     sg_pass_action pass_action;
 } state;
 
-static void on_sokol_init(void* user_data) {
+static void DestroyTextures(AppState* state)
+{
+    for (int i = 0; i < state->num_page_textures; ++i)
+    {
+        AppTexture* texture = &state->page_textures[i];
+        simgui_destroy_image(texture->imgui_image);
+        sg_destroy_image(texture->image);
+    }
+
+    free((void*)state->page_textures);
+}
+
+static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, int width, int height, int channels)
+{
+    uint8_t* tmp = 0;
+    if (channels == 3)
+    {
+        // TODO: Move to a apRGBToRGBA() helper function
+        tmp = (uint8_t*)malloc(width * height * channels);
+        for (int y = 0; y < height; ++y)
+        {
+            for (int x = 0; x < width; ++x)
+            {
+                tmp[y * 4 * width + x * 4 + 0] = image[y * 3 * width + x * 3 + 0];
+                tmp[y * 4 * width + x * 4 + 1] = image[y * 3 * width + x * 3 + 1];
+                tmp[y * 4 * width + x * 4 + 2] = image[y * 3 * width + x * 3 + 2];
+                tmp[y * 4 * width + x * 4 + 3] = 0xFF;
+            }
+        }
+
+        image = tmp;
+    }
+
+    sg_image_desc def_image_desc;
+    _simgui_clear(&def_image_desc, sizeof(def_image_desc));
+    def_image_desc.width = width;
+    def_image_desc.height = height;
+    def_image_desc.pixel_format = SG_PIXELFORMAT_RGBA8;
+    def_image_desc.data.subimage[0][0].ptr = image;
+    def_image_desc.data.subimage[0][0].size = width * height * 4;
+    def_image_desc.label = "atlas-image";
+
+    texture->image = sg_make_image(&def_image_desc);
+    texture->imgui_image = simgui_make_image(&(simgui_image_desc_t){
+            .image = texture->image,
+            .sampler = { 0 }, // TODO: Create a NEAREST sampler
+        });
+    texture->texture_id = simgui_imtextureid(texture->imgui_image);
+
+    if (tmp)
+    {
+        free((void*)tmp);
+    }
+}
+
+static void AllocTextures(AppState* state, int count)
+{
+    uint32_t size = sizeof(AppTexture) * count;
+    state->num_page_textures = count;
+    state->page_textures = (AppTexture*)malloc(size);
+    memset(state->page_textures, 0, size);
+}
+
+static void CreateDefaultTexture(AppState* state)
+{
+    const int width = 64;
+    const int height = 64;
+    uint32_t def_pixels[width*height];
+    for (int y = 0; y < height; ++y)
+    {
+        for (int x = 0; x < width; ++x)
+        {
+            if ((x+y)&1) def_pixels[y*width + x] = 0xFF333333;
+            else         def_pixels[y*width + x] = 0xFF555555;
+        }
+    }
+    DestroyTextures(state);
+    AllocTextures(state, 1);
+    CreateTexture(state, &state->page_textures[0], (uint8_t*)def_pixels, width, height, 4);
+    state->zoom = 1.0f / state->num_page_textures;
+}
+
+static void CreateAtlasTextures(AppState* state)
+{
+    DestroyTextures(state);
+    AllocTextures(state, state->num_pages);
+
+    int old_num_pages = state->num_page_textures;
+    state->num_page_textures = state->num_pages;
+    for (int i = 0; i < state->num_pages; ++i)
+    {
+        Page* page = &state->pages[i];
+        CreateTexture(state, &state->page_textures[i], page->data, page->width, page->height, page->channels);
+
+        state->page_size.width = page->width;
+        state->page_size.height = page->height;
+        free((void*)page->data);
+    }
+
+    if (state->num_pages == 0)
+        state->num_pages = 1;
+    if (old_num_pages != state->num_pages) // We want to maintain the zoom while the user is updating settings
+        state->zoom = 1.0f / state->num_pages;
+
+    free((void*)state->pages);
+    state->pages = 0;
+    state->num_pages = 0;
+}
+
+static void OnSokolInit(void* user_data)
+{
+    AppState* app_state = (AppState*)user_data;
+
     sg_setup(&(sg_desc){
         .environment = sglue_environment(),
         .logger.func = slog_func,
@@ -53,6 +166,12 @@ static void on_sokol_init(void* user_data) {
     state.pass_action = (sg_pass_action) {
         .colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.0f, 0.5f, 1.0f, 1.0 } }
     };
+
+    // Create dummy texture for atlas pages
+    app_state->zoom = 1.0f;
+    app_state->num_page_textures = 0;
+    app_state->page_textures = 0;
+    CreateDefaultTexture(app_state);
 }
 
 static void DrawImageListTree(TreeNode* node)
@@ -193,9 +312,12 @@ static void DrawImageList(AppState* state)
 }
 
 
-static void ThreadRecreateAtlas(void* ctx)
+static void ThreadRecreateAtlas(void* _ctx)
 {
-    AppState* state = (AppState*)ctx;
+    AppState* state = (AppState*)_ctx;
+
+    uint64_t tend;
+    uint64_t tstart;
 
     thread_mutex_lock(&state->mutex);
     state->creating_atlas = 1;
@@ -203,40 +325,90 @@ static void ThreadRecreateAtlas(void* ctx)
     apProject* project = state->project;
     apPacker* packer = 0;
 
+    printf("Creating packer of type: %d\n", project->packer_type);
+
     if (project->packer_type == PT_TILEPACKER)
         packer = apTilePackerCreate(&project->options_tp);
     else
         packer = apBinPackerCreate(&project->options_bp);
 
-    if (packer)
+    if (!packer)
     {
-
+        // Handle any errors
     }
 
+    tstart = GetTime();
     project->context = apCreate(&project->options, packer);
+    if (project->context)
+    {
+        printf("Adding images\n");
+        tstart = GetTime();
 
-    printf("Created packer contexts\n");
+        // TODO: Make sure we only create apImages for the unique images that we want to pack
+        // Any many-to-one mappings needs to happe before this point.
+        for (int i = 0; i < state->num_images; ++i)
+        {
+            Image* image = state->images[i];
+            apAddImage(project->context, image->path, image->width, image->height, image->channels, image->data);
+        }
 
+
+        tend = GetTime();
+
+        printf("Adding images took %.2f ms\n", (tend-tstart)/1000.0f);
+
+
+        tstart = GetTime();
+
+        apPackImages(project->context);
+
+        tend = GetTime();
+        printf("Packing atlas images took %.2f ms\n", (tend-tstart)/1000.0f);
+    }
+
+    //printf("Created packer contexts\n");
+
+    state->num_pages = 0;
+    state->pages = apRenderPages(state->project->context, &state->num_pages, 0);
 
     state->creating_atlas = 0;
 
     thread_mutex_unlock(&state->mutex);
 }
 
+static void RecreateAtlas(AppState* state)
+{
+    worker_push_job(state->thread, ThreadRecreateAtlas, (void*)state);
+}
+
 static void DrawPackerOptions(AppState* state)
 {
     apProject* project = state->project;
+    int dirty = 0;
+
+    igBeginGroup();
 
     igText("General Packer Options");
 
-    // TODO: It cannot be smaller than the largest image
-    int min_size = 1;
-    int max_size = 8192; // Remember, you can double click on the slider to manually edit it!
-    if (igSliderInt("Page Size (texels)", &project->options.page_size, min_size, max_size, "%d", 0))
+    int page_sizes[] = {0, 256, 512, 1024, 2048, 4096, 8192, 16384};
+    const char* page_sizes_str[] = {"Dynamic", "256", "512", "1024", "2048", "4096", "8192", "16384"};
+    int num_page_sizes = sizeof(page_sizes)/sizeof(page_sizes[0]);
+    int tile_size_index = 0;
+    for (int i = 0; i < num_page_sizes; ++i)
     {
-        if (project->options.page_size < 1)
-            project->options.page_size = 1;
+        if (project->options.page_size == page_sizes[i])
+        {
+            tile_size_index = i;
+            break;
+        }
     }
+    if (igCombo_Str_arr("Page Size (texels)", &tile_size_index, page_sizes_str, num_page_sizes, 0))
+    {
+        project->options.page_size = page_sizes[tile_size_index];
+        dirty = 1;
+    }
+
+    igEndGroup();
 
     igSeparator();
 
@@ -249,8 +421,7 @@ static void DrawPackerOptions(AppState* state)
     {
         project->packer_type = packer_types[packer_type_index];
 
-        // printf("Pushing a packer recreate job!\n");
-        // worker_push_job(state->thread, ThreadRecreateAtlas, (void*)state);
+        dirty = 1;
     }
 
     igSeparator();
@@ -261,22 +432,39 @@ static void DrawPackerOptions(AppState* state)
     {
         apTilePackerOptions* options = &project->options_tp;
 
-        if (igSliderInt("Tile Size (texels)", &options->tile_size, 1, 128, "%d", ImGuiSliderFlags_AlwaysClamp))
+        int sizes[] = {1, 2, 4, 8, 16, 32, 64};
+        const char* sizes_str[] = {"1", "2", "4", "8", "16", "32", "64"};
+        int num_sizes = sizeof(sizes)/sizeof(sizes[0]);
+        int tile_size_index = 0;
+        for (int i = 0; i < num_sizes; ++i)
         {
+            if (options->tile_size == sizes[i])
+            {
+                tile_size_index = i;
+                break;
+            }
+        }
+        if (igCombo_Str_arr("Tile Size (texels)", &tile_size_index, sizes_str, num_sizes, 0))
+        {
+            options->tile_size = sizes[tile_size_index];
+            dirty = 1;
         }
 
         bool no_rotate = (bool)options->no_rotate;
         if (igCheckbox("No Rotate", &no_rotate))
         {
             options->no_rotate = (int)no_rotate;
+            dirty = 1;
         }
 
         if (igSliderInt("Padding (texels)", &options->padding, 0, 16, "%d", ImGuiSliderFlags_AlwaysClamp))
         {
+            dirty = 1;
         }
 
         if (igSliderInt("Alpha threshold", &options->alpha_threshold, 1, 255, "%d", ImGuiSliderFlags_AlwaysClamp))
         {
+            dirty = 1;
         }
     }
     else if (project->packer_type == PT_BINPACKER)
@@ -290,19 +478,63 @@ static void DrawPackerOptions(AppState* state)
         if (igCombo_Str_arr("Bin Packer Mode", &binpacker_type_index, binpackertype_items, num_binpackertype_items, 0))
         {
             options->mode = (apBinPackMode)binpacker_type_index;
+            dirty = 1;
         }
 
         bool no_rotate = (bool)options->no_rotate;
         if (igCheckbox("No Rotate", &no_rotate))
         {
             options->no_rotate = (int)no_rotate;
+            dirty = 1;
         }
+    }
+
+    if (dirty)
+    {
+        RecreateAtlas(state);
     }
 }
 
-static void DrawAtlasPages()
+static void DrawAtlasPages(AppState* state)
 {
-    igText("Atlas pages");
+    if (state->project->context)
+    {
+        igText("Atlas: %d pages, %d x %d", state->num_page_textures, state->page_size.width, state->page_size.height);
+    }
+    else
+    {
+        igText("");
+    }
+
+    igBeginChild_Str("#atlas_texture", (ImVec2){0,0}, 0, 0);
+
+    ImVec2 size;
+    igGetWindowSize(&size);
+
+    //static float zoom = 1.0f;
+
+    if (igIsKeyDown_Nil(ImGuiKey_MouseWheelY) && igIsKeyDown_Nil(ImGuiMod_Ctrl))
+    {
+        const float zoom_speed = 0.01f;
+        state->zoom += igGetIO()->MouseWheel * zoom_speed;
+        if (state->zoom < 0.02f)
+            state->zoom = 0.02f;
+        if (state->zoom > 3.0f)
+            state->zoom = 3.0f;
+    }
+
+    size.x *= state->zoom;
+    size.y *= state->zoom;
+
+    for (int i = 0; i < state->num_page_textures; ++i)
+    {
+        ImVec2 uv0 = {0,0};
+        ImVec2 uv1 = {1,1};
+        igSameLine(0, 0);
+        igImage(state->page_textures[i].texture_id, size, uv0, uv1, (ImVec4){1,1,1,1}, (ImVec4){0,0,0,0});
+    }
+
+    igEndChild();
 }
 
 
@@ -453,7 +685,7 @@ static void ThreadLoadImages(void* ctx)
         getcwd(project_dir, sizeof(project_dir));
     }
 
-    printf("Project directory: '%s'\n", project_dir);
+    //printf("Project directory: '%s'\n", project_dir);
 
     for (int i = 0; i < num_sources; ++i)
     {
@@ -517,15 +749,19 @@ static void ThreadLoadImages(void* ctx)
     }
     state->num_images = count;
 
+    SortImages(state->images, state->num_images);
+
     thread_mutex_lock(&state->mutex);
         state->loading_images = 0;
     thread_mutex_unlock(&state->mutex);
+
+    RecreateAtlas(state);
 
     uint64_t tend = GetTime();
     printf("ThreadLoadImages: Loaded %d images in %.3f s!\n", state->num_images, (tend - tstart) / 1000000.0f);
 }
 
-static void on_sokol_frame(void* user_data)
+static void OnSokolFrame(void* user_data)
 {
     AppState* app_state = (AppState*)user_data;
 
@@ -533,11 +769,13 @@ static void on_sokol_frame(void* user_data)
     thread_mutex_lock(&app_state->mutex);
     do_files_load = app_state->dirty_fileset;
     app_state->dirty_fileset = 0;
+
+    if (app_state->pages)
+        CreateAtlasTextures(app_state);
     thread_mutex_unlock(&app_state->mutex);
 
     if (do_files_load)
     {
-        printf("Pushing a file loading job!\n");
         worker_push_job(app_state->thread, ThreadLoadImages, (void*)app_state);
     }
 
@@ -577,7 +815,7 @@ static void on_sokol_frame(void* user_data)
         igDockBuilderSetNodeSize(dockLeft, (ImVec2){left_size, height});
 
         igDockBuilderDockWindow("#settings", dockLeft);
-        igDockBuilderDockWindow("#pages", dockRight);
+        igDockBuilderDockWindow("#textures", dockRight);
 
         igDockBuilderFinish(dockspace_id);
 
@@ -596,7 +834,6 @@ static void on_sokol_frame(void* user_data)
         {
             if (igMenuItem_Bool("Open...", "CTRL+O", false, true))
             {
-                printf("Open Dialog!\n");
             }
             if (igIsItemClicked(ImGuiMouseButton_Left))
             {
@@ -610,7 +847,6 @@ static void on_sokol_frame(void* user_data)
 
             if (igMenuItem_Bool("Save", "CTRL+S", false, true))
             {
-                printf("Save: '%s'\n", app_state->path ? app_state->path : "null");
                 if (app_state->path == 0)
                 {
                     thread_mutex_lock(&app_state->mutex);
@@ -652,7 +888,7 @@ static void on_sokol_frame(void* user_data)
 
         if (igBeginTabItem("Exporter", 0, ImGuiTabItemFlags_NoCloseButton))
         {
-            //DrawImageList();
+            //DrawExporterOptions();
             igEndTabItem();
         }
 
@@ -660,11 +896,20 @@ static void on_sokol_frame(void* user_data)
     }
     igEnd();
 
-    igBegin("#pages", 0, 0);
-        DrawAtlasPages();
+    igBegin("#textures", 0, 0);
+        if (igBeginTabBar("#textures_tabs", 0))
+        {
+            if (igBeginTabItem("#pages", 0, ImGuiTabItemFlags_NoCloseButton))
+            {
+                DrawAtlasPages(app_state);
+                igEndTabItem();
+            }
+
+            igEndTabBar();
+        }
     igEnd();
 
-    igShowDemoWindow(0);
+    //igShowDemoWindow(0);
 
     /*=== UI CODE ENDS HERE ===*/
 
@@ -674,7 +919,7 @@ static void on_sokol_frame(void* user_data)
     sg_commit();
 }
 
-static void on_sokol_cleanup(void* user_data) {
+static void OnSokolCleanup(void* user_data) {
     simgui_shutdown();
     sg_shutdown();
 }
@@ -691,7 +936,7 @@ static void ProjectAddSource(AppState* state, const char** paths, uint32_t num_p
     thread_mutex_unlock(&state->mutex);
 }
 
-static void on_sokol_event(const sapp_event* ev, void* user_data) {
+static void OnSokolEvent(const sapp_event* ev, void* user_data) {
     AppState* state = (AppState*)user_data;
 
     if (ev->type == SAPP_EVENTTYPE_FILES_DROPPED) {
@@ -785,8 +1030,6 @@ static void on_sokol_event(const sapp_event* ev, void* user_data) {
     }
 }
 
-//simgui_setup(const simgui_desc_t* desc)
-
 int main(int argc, char* argv[])
 {
     AppState app_state;
@@ -797,7 +1040,7 @@ int main(int argc, char* argv[])
 
     if (argc > 1)
     {
-        app_state.path = argv[1];
+        app_state.path = argv[argc-1];
         app_state.project = apLoadProjectFromPath(app_state.path);
         app_state.dirty_fileset = 1;
     }
@@ -811,10 +1054,10 @@ int main(int argc, char* argv[])
         .width = 1280,
         .height = 1024,
         .user_data = (void*)&app_state,
-        .init_userdata_cb = on_sokol_init,
-        .frame_userdata_cb = on_sokol_frame,
-        .cleanup_userdata_cb = on_sokol_cleanup,
-        .event_userdata_cb = on_sokol_event,
+        .init_userdata_cb = OnSokolInit,
+        .frame_userdata_cb = OnSokolFrame,
+        .cleanup_userdata_cb = OnSokolCleanup,
+        .event_userdata_cb = OnSokolEvent,
         .logger.func = slog_func,
         .enable_dragndrop = true,
         .max_dropped_files = 8 *1024,

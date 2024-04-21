@@ -10,7 +10,7 @@ extern "C" {
 #include <atlaspacker/atlaspacker.h>
 #include <atlaspacker/tilepacker.h>
 #include <atlaspacker/convexhull.h>
-#include "utils.h"
+#include <atlaspacker/util.h>
 }
 
 struct AppOptions
@@ -295,7 +295,7 @@ TEST(PackerTilePack, PackSpineboyVertices) {
 
     apPackImages(ctx);
 
-    ASSERT_TRUE(DebugWriteOutput(ctx, "pack_tile_spineboy"));
+    //ASSERT_TRUE(DebugWriteOutput(ctx, "pack_tile_spineboy"));
 
     apDestroy(ctx);
 
@@ -378,70 +378,70 @@ static int TestStandalone(const char* dir_path, const char* outname, AppOptions*
         //printf("Adding image: %s, %d x %d  \t\tarea: %d\n", image->path, image->width, image->height, image->width * image->height);
         apImage* apimage = apAddImage(ctx, image->path, image->width, image->height, image->channels, image->data);
 
-        t_add_images += (GetTime() - tsubstart);
+//         t_add_images += (GetTime() - tsubstart);
 
-        int num_planes = 8;
+//         int num_planes = 8;
 
-    int debug = i == 0;
-    //int debug = 0;
+//     int debug = i == 0;
+//     //int debug = 0;
 
-        uint8_t* hull_image = 0;
+//         uint8_t* hull_image = 0;
 
-        int num_vertices = 0;
-        apPosf* vertices = 0;
+//         int num_vertices = 0;
+//         apPosf* vertices = 0;
 
-        int num_triangles = 0;
-        apPosf* triangles = 0;
+//         int num_triangles = 0;
+//         apPosf* triangles = 0;
 
-        if (mode == 0)
-        {
-            tsubstart = GetTime();
+//         if (mode == 0)
+//         {
+//             tsubstart = GetTime();
 
-// TODO: Move this code into the tilepacker itself
+// // TODO: Move this code into the tilepacker itself
 
-            int dilate = 0;
-            hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
+//             int dilate = 0;
+//             hull_image = apCreateHullImage(image->data, (uint32_t)image->width, (uint32_t)image->height, (uint32_t)image->channels, dilate);
 
-            t_create_hull_images += (GetTime() - tsubstart);
+//             t_create_hull_images += (GetTime() - tsubstart);
 
-            tsubstart = GetTime();
+//             tsubstart = GetTime();
 
-            vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
-            if (!vertices)
-            {
-                printf("Failed to generate hull for %s\n", image->path);
+//             vertices = apConvexHullFromImage(num_planes, hull_image, image->width, image->height, &num_vertices);
+//             if (!vertices)
+//             {
+//                 printf("Failed to generate hull for %s\n", image->path);
 
-                char path[64];
-                snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
-                int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
-                if (result)
-                    printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+//                 char path[64];
+//                 snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+//                 int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+//                 if (result)
+//                     printf("Wrote %s at %d x %d\n", path, image->width, image->height);
 
-                return 1;
-            }
+//                 return 1;
+//             }
 
-            t_convex_hulls += (GetTime() - tsubstart);
+//             t_convex_hulls += (GetTime() - tsubstart);
 
-            // Triangulate a convex hull
-            num_triangles = num_vertices - 2;
-            triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
-            for (int t = 0; t < num_triangles; ++t)
-            {
-                triangles[t*3+0] = vertices[0];
-                triangles[t*3+1] = vertices[1+t+0];
-                triangles[t*3+2] = vertices[1+t+1];
-            }
+//             // Triangulate a convex hull
+//             num_triangles = num_vertices - 2;
+//             triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
+//             for (int t = 0; t < num_triangles; ++t)
+//             {
+//                 triangles[t*3+0] = vertices[0];
+//                 triangles[t*3+1] = vertices[1+t+0];
+//                 triangles[t*3+2] = vertices[1+t+1];
+//             }
 
-            apimage->vertices = triangles;
-            apimage->num_vertices = num_triangles*3;
+//             apimage->vertices = triangles;
+//             apimage->num_vertices = num_triangles*3;
 
-            tsubstart = GetTime();
+//             tsubstart = GetTime();
 
-            apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
+//             apTilePackerCreateTileImageFromTriangles(packer, apimage, triangles, num_triangles*3);
 
-            t_tile_image_from_triangles += (GetTime() - tsubstart);
+//             t_tile_image_from_triangles += (GetTime() - tsubstart);
 
-        }
+//         }
 
         if (debug)
         {

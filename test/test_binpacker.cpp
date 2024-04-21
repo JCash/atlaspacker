@@ -9,7 +9,7 @@ extern "C" {
 #include <stb_wrappers.h>
 #include <atlaspacker/atlaspacker.h>
 #include <atlaspacker/binpacker.h>
-#include "utils.h"
+#include <atlaspacker/util.h>
 }
 
 TEST(PackerBinPack, PackSmall) {

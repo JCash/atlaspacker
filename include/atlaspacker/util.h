@@ -43,3 +43,13 @@ int     IterateFiles(const char* dirpath, int recursive, int (*callback)(void* c
 void    DebugPrintTileImage(uint32_t width, uint32_t height, uint8_t* data);
 
 uint8_t* ReadFile(const char* path, uint32_t* file_size);
+
+typedef struct
+{
+    uint8_t*    data;
+    int         width;
+    int         height;
+    int         channels;
+} Page;
+
+Page* apRenderPages(apContext* context, int* num_pages, uint32_t debug_color);

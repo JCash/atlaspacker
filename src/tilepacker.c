@@ -430,13 +430,70 @@ static uint8_t* apTilePackerPadImage(int width, int height, int channels, const 
     return dst_data;
 }
 
+static int apTilePackerCreateVertices(apTilePacker* packer, apTilePackerImage* image, int width, int height, int channels, const uint8_t* data)
+{
+    apImage* apimage = (apImage*)image;
+
+    int num_planes = 8; // a potential option if needed
+    int dilate = 0; // a potential option if needed
+    uint8_t* hull_image = apCreateHullImage(data, (uint32_t)width, (uint32_t)height, (uint32_t)channels, dilate);
+
+    // t_create_hull_images += (GetTime() - tsubstart);
+    // tsubstart = GetTime();
+
+    int num_vertices = 0;
+    apPosf* vertices = apConvexHullFromImage(num_planes, hull_image, width, height, &num_vertices);
+    if (!vertices)
+    {
+        printf("Failed to generate hull for %s\n", apimage->path);
+
+        // char path[64];
+        // snprintf(path, sizeof(path), "image_tilepack_%s_%02d.tga", "hullimage", i);
+        // int result = STBI_write_tga(path, image->width, image->height, 1, hull_image);
+        // if (result)
+        //     printf("Wrote %s at %d x %d\n", path, image->width, image->height);
+
+        return 1;
+    }
+
+    // t_convex_hulls += (GetTime() - tsubstart);
+
+    // Triangulate a convex hull
+    int num_triangles = num_vertices - 2;
+    apPosf* triangles = (apPosf*)malloc(sizeof(apPosf) * (size_t)num_triangles * 3);
+    for (int t = 0; t < num_triangles; ++t)
+    {
+        triangles[t*3+0] = vertices[0];
+        triangles[t*3+1] = vertices[1+t+0];
+        triangles[t*3+2] = vertices[1+t+1];
+
+        // printf("  tri %d: %f, %f\n", t, triangles[t*3+0].x, triangles[t*3+0].y);
+        // printf("  tri %d: %f, %f\n", t, triangles[t*3+1].x, triangles[t*3+1].y);
+        // printf("  tri %d: %f, %f\n", t, triangles[t*3+2].x, triangles[t*3+2].y);
+    }
+
+    apimage->vertices = triangles;
+    apimage->num_vertices = num_triangles*3;
+
+    // tsubstart = GetTime();
+
+    apTilePackerCreateTileImageFromTriangles((apPacker*)packer, apimage, triangles, num_triangles*3);
+
+    free((void*)vertices);
+    free((void*)hull_image);
+    return 0;
+}
+
 static apImage* apTilePackerCreateImage(apPacker* _packer, const char* path, int width, int height, int channels, const uint8_t* data)
 {
     apTilePacker* packer = (apTilePacker*)_packer;
 
     apTilePackerImage* image = (apTilePackerImage*)malloc(sizeof(apTilePackerImage));
     memset(image, 0, sizeof(apTilePackerImage));
+    // TODO: Call an apImageInit() or similar
     image->super.page = -1;
+    image->super.width = width;
+    image->super.height = height;
 
     image->images = (apTileImage**)malloc(sizeof(apTileImage*)*8);
     memset(image->images, 0, sizeof(apTileImage*)*8);
@@ -454,6 +511,7 @@ static apImage* apTilePackerCreateImage(apPacker* _packer, const char* path, int
         }
     }
 
+    apTilePackerCreateVertices(packer, image, width, height, channels, data);
     return (apImage*)image;
 }
 

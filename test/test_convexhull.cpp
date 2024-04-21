@@ -6,7 +6,7 @@
 extern "C" {
 #include <stb_wrappers.h>
 #include <atlaspacker/convexhull.h>
-#include "utils.h"
+#include <atlaspacker/util.h>
 }
 
 

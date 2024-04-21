@@ -7,7 +7,7 @@
 extern "C" {
 #include <stb_wrappers.h>
 #include <atlaspacker/atlaspacker.h>
-#include "utils.h"
+#include <atlaspacker/util.h>
 }
 
 

@@ -47,7 +47,7 @@ static void ParseGeneralPackerOptions(apProject* p, cJSON* packer)
 {
     apOptions* options = &p->options;
 
-    options->page_size = GetInt(packer, "tile_size", options->page_size);
+    options->page_size = GetInt(packer, "page_size", options->page_size);
 
     // Should the validation be done by each packer?
     if (options->page_size < 1)
@@ -105,9 +105,9 @@ static void ParsePacker(apProject* p, cJSON* packer)
 	const char* type_str = cJSON_GetStringValue(type);
 
     cJSON* packer_type_object = cJSON_GetObjectItemCaseSensitive(packer, type_str);
-	if (strcmp("tilepacker", type_str))
+	if (strcmp("tilepacker", type_str) == 0)
 		ParseTilePackerOptions(p, packer_type_object);
-    else if (strcmp("binpacker", type_str))
+    else if (strcmp("binpacker", type_str) == 0)
         ParseBinPackerOptions(p, packer_type_object);
 }
 
@@ -286,7 +286,10 @@ void apDebugPrintProject(apProject* p)
 	printf("  \n");
 
 	printf("  packer:\n");
-	printf("    type: %d\n", p->packer_type);
+	printf("    page_size: %d\n", p->options.page_size);
+
+    printf("    type: %d\n", p->packer_type);
+
 	if (p->packer_type == PT_TILEPACKER)
 	{
 		printf("    no_rotate: %d\n", p->options_tp.no_rotate);
@@ -294,12 +297,10 @@ void apDebugPrintProject(apProject* p)
 		printf("    padding: %d\n", p->options_tp.padding);
 		printf("    alpha_threshold: %d\n", p->options_tp.alpha_threshold);
 	}
-	else if (p->packer_type == PT_TILEPACKER)
+	else if (p->packer_type == PT_BINPACKER)
 	{
-		printf("    no_rotate: %d\n", p->options_tp.no_rotate);
-		printf("    tile_size: %d\n", p->options_tp.tile_size);
-		printf("    padding: %d\n", p->options_tp.padding);
-		printf("    alpha_threshold: %d\n", p->options_tp.alpha_threshold);
+		printf("    no_rotate: %d\n", p->options_bp.no_rotate);
+		printf("    mode: %d\n", p->options_bp.mode);
 	}
 
 	printf("  \n");

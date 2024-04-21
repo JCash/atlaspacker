@@ -5,6 +5,18 @@
 #include <thread.h>
 #include "worker.h"
 
+#include <sokol_gfx.h>
+#include <sokol_app.h>
+#include <sokol_imgui.h> // for simgui_image_t
+typedef void* ImTextureID;
+
+
+typedef struct {
+    sg_image        image;
+    simgui_image_t  imgui_image;
+    ImTextureID     texture_id;
+} AppTexture;
+
 typedef struct {
     const char* path;
     apProject*  project;
@@ -23,6 +35,15 @@ typedef struct {
     thread_mutex_t mutex;
     worker*        thread;
 
+    float           zoom;
+    int             num_page_textures;
+    AppTexture*     page_textures;
+    apSize          page_size;
+
+    // If set, then the textures need to be recreated
+    // OpenGL requires you to do this on the context thread (unless you create an aux context)
+    Page*           pages;
+    int             num_pages;
 
 	Image** 	images; // the raw images
 	int         num_images;
