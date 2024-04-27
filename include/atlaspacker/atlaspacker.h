@@ -114,6 +114,7 @@ void        apPageAddImage(apPage* page, apImage* image);
 uint64_t    apGetTime(); // for profiling
 
 // Math functions
+int         apIsPowerOfTwo(uint32_t v);
 uint32_t    apNextPowerOfTwo(uint32_t v);
 
 // Rotates a coord (x,y) in fixed rotations of [0,90,180,270] degrees

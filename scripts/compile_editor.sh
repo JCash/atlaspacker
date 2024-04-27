@@ -41,7 +41,7 @@ if [ ! -e "${CIMGUI_LIB}" ]; then
 	popd
 fi
 
-OPT="-O0 -g"
+#OPT="-O0 -g"
 CFLAGS="${CFLAGS} -I${SOKOL_DIR} -I${SOKOL_DIR}/util -I${CIMGUI_DIR} -Iexternal/nativefiledialog/src/include"
 
 function compile_c_file {

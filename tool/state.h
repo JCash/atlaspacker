@@ -47,7 +47,11 @@ typedef struct {
 
 	Image** 	images; // the raw images
 	int         num_images;
+    int         max_image_size; // What is the largest image size in the set?
 
 	TreeNode    images_root; // The tree of images
+
+    // Debug draw options
+    bool        debug_draw_triangles;
 
 } AppState;

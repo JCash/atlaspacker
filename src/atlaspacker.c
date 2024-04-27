@@ -207,6 +207,11 @@ void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channel
     }
 }
 
+int apIsPowerOfTwo(uint32_t x)
+{
+    return x && (!(x & (x - 1)));
+}
+
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
 uint32_t apNextPowerOfTwo(uint32_t v)
 {

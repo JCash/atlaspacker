@@ -390,22 +390,34 @@ static void DrawPackerOptions(AppState* state)
 
     igText("General Packer Options");
 
-    int page_sizes[] = {0, 256, 512, 1024, 2048, 4096, 8192, 16384};
-    const char* page_sizes_str[] = {"Dynamic", "256", "512", "1024", "2048", "4096", "8192", "16384"};
-    int num_page_sizes = sizeof(page_sizes)/sizeof(page_sizes[0]);
-    int tile_size_index = 0;
-    for (int i = 0; i < num_page_sizes; ++i)
+    int page_sizes[8] = { 0 };
+    int num_page_sizes = 1;
+    int page_size_index = 0;
+    int current_size = apIsPowerOfTwo(state->max_image_size) ? state->max_image_size : apNextPowerOfTwo(state->max_image_size);
+    while (current_size <= 16384)
     {
-        if (project->options.page_size == page_sizes[i])
+        if (project->options.page_size == current_size)
         {
-            tile_size_index = i;
-            break;
+            page_size_index = num_page_sizes;
         }
+        page_sizes[num_page_sizes++] = current_size;
+        current_size *= 2;
     }
-    if (igCombo_Str_arr("Page Size (texels)", &tile_size_index, page_sizes_str, num_page_sizes, 0))
+
+    // Our input list is dynamic, as it's dependent on the biggest image size
+    char page_size_str[64] = "Dynamic";
+    if (page_size_index)
+        snprintf(page_size_str, sizeof(page_size_str), "%d", page_sizes[page_size_index]);
+
+    if (igSliderInt("Page Size (texels)", &page_size_index, 0, num_page_sizes-1, page_size_str, 0))
     {
-        project->options.page_size = page_sizes[tile_size_index];
-        dirty = 1;
+        int old_size = project->options.page_size;
+        int new_size = page_sizes[page_size_index];
+        if (old_size != new_size)
+        {
+            project->options.page_size = new_size;
+            dirty = 1;
+        }
     }
 
     igEndGroup();
@@ -432,22 +444,30 @@ static void DrawPackerOptions(AppState* state)
     {
         apTilePackerOptions* options = &project->options_tp;
 
-        int sizes[] = {1, 2, 4, 8, 16, 32, 64};
-        const char* sizes_str[] = {"1", "2", "4", "8", "16", "32", "64"};
-        int num_sizes = sizeof(sizes)/sizeof(sizes[0]);
+        int tile_sizes[] = {1, 2, 4, 8, 16, 32, 64};
+        int num_tile_sizes = sizeof(tile_sizes)/sizeof(tile_sizes[0]);
         int tile_size_index = 0;
-        for (int i = 0; i < num_sizes; ++i)
+        for (int i = 0; i < num_tile_sizes; ++i)
         {
-            if (options->tile_size == sizes[i])
+            if (options->tile_size == tile_sizes[i])
             {
                 tile_size_index = i;
                 break;
             }
         }
-        if (igCombo_Str_arr("Tile Size (texels)", &tile_size_index, sizes_str, num_sizes, 0))
+
+        char tile_size_str[64];
+        snprintf(tile_size_str, sizeof(tile_size_str), "%d", tile_sizes[tile_size_index]);
+
+        if (igSliderInt("Tile Size (texels)", &tile_size_index, 0, num_tile_sizes-1, tile_size_str, 0))
         {
-            options->tile_size = sizes[tile_size_index];
-            dirty = 1;
+            int old_size = options->tile_size;
+            int new_size = tile_sizes[tile_size_index];
+            if (old_size != new_size)
+            {
+                options->tile_size = new_size;
+                dirty = 1;
+            }
         }
 
         bool no_rotate = (bool)options->no_rotate;
@@ -489,6 +509,15 @@ static void DrawPackerOptions(AppState* state)
         }
     }
 
+    igSeparator();
+
+    igText("Debug options");
+
+    if (igCheckbox("Draw Triangles", &state->debug_draw_triangles))
+    {
+    }
+
+
     if (dirty)
     {
         RecreateAtlas(state);
@@ -497,6 +526,8 @@ static void DrawPackerOptions(AppState* state)
 
 static void DrawAtlasPages(AppState* state)
 {
+    thread_mutex_lock(&state->mutex);
+
     if (state->project->context)
     {
         igText("Atlas: %d pages, %d x %d", state->num_page_textures, state->page_size.width, state->page_size.height);
@@ -526,15 +557,81 @@ static void DrawAtlasPages(AppState* state)
     size.x *= state->zoom;
     size.y *= state->zoom;
 
+
     for (int i = 0; i < state->num_page_textures; ++i)
     {
         ImVec2 uv0 = {0,0};
         ImVec2 uv1 = {1,1};
         igSameLine(0, 0);
+
+        ImVec2 start_pos;
+        igGetCursorScreenPos(&start_pos);
+
         igImage(state->page_textures[i].texture_id, size, uv0, uv1, (ImVec4){1,1,1,1}, (ImVec4){0,0,0,0});
+
+        if (state->debug_draw_triangles)
+        {
+            ImDrawList* draw_list = igGetWindowDrawList();
+
+            ImVec2 pos = start_pos;
+            pos.x += size.x * 0.5f;
+            pos.y += size.y * 0.5f;
+
+            ImVec2 b = start_pos;
+            b.x += size.x * 0.75f;
+            b.y += size.y * 0.75f;
+
+            // TODO: check if we can detect "hover" over each image
+
+            if (state->project && state->project->context)
+            {
+                apPage* page = apGetPage(state->project->context, i);
+                apImage* image = apPageGetFirstImage(page);
+
+                float width = (float)page->dimensions.width;
+                float height = (float)page->dimensions.height;
+                while (image)
+                {
+                    int num_vertices = image->num_vertices;
+                    apPosf* vertices = image->vertices;
+                    for (int v0 = 0; v0 < num_vertices; ++v0)
+                    {
+                        int v1 = (v0+1)%num_vertices;
+                        apPosf p0 = vertices[v0];
+                        apPosf p1 = vertices[v1];
+
+                        // convert to units
+                        p0.x /= width;
+                        p0.y /= height;
+                        p1.x /= width;
+                        p1.y /= height;
+
+                        // convert to window size
+                        p0.x *= size.x;
+                        p0.y *= size.y;
+                        p1.x *= size.x;
+                        p1.y *= size.y;
+
+                        // // Add window start pos
+                        p0.x += start_pos.x;
+                        p0.y += start_pos.y;
+                        p1.x += start_pos.x;
+                        p1.y += start_pos.y;
+
+                        ImVec2 a = { p0.x, p0.y };
+                        ImVec2 b = { p1.x, p1.y };
+                        ImDrawList_AddLine(draw_list, a, b, 0xFF00F0FF, 1.0f);
+                    }
+
+                    image = image->next;
+                }
+            }
+        }
     }
 
     igEndChild();
+
+    thread_mutex_unlock(&state->mutex);
 }
 
 
@@ -740,11 +837,18 @@ static void ThreadLoadImages(void* ctx)
 
     state->images = (Image**)malloc(sizeof(Image*)*count);
 
+    state->max_image_size = 0;
     count = 0;
     first = image_list.next;
     while (first)
     {
         state->images[count++] = first;
+
+        if (first->width > state->max_image_size)
+            state->max_image_size = first->width;
+        if (first->height > state->max_image_size)
+            state->max_image_size = first->height;
+
         first = first->next;
     }
     state->num_images = count;
@@ -909,7 +1013,7 @@ static void OnSokolFrame(void* user_data)
         }
     igEnd();
 
-    //igShowDemoWindow(0);
+    igShowDemoWindow(0);
 
     /*=== UI CODE ENDS HERE ===*/
 
