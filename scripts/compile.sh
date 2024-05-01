@@ -68,7 +68,7 @@ if [ "${ARCH}" == "" ]; then
 fi
 echo Using ARCH=${ARCH}
 
-CFLAGS="$CFLAGS -g -std=$STDCVERSION -Wall -Iinclude -Isrc -I. -Iexternal -Itest $ASAN $PREPROCESS"
+CFLAGS="$CFLAGS -g -std=$STDCVERSION -Wall $ASAN $PREPROCESS"
 CXXFLAGS="$CXXFLAGS -g -std=$STDCXXVERSION -Wall -fno-exceptions -Wno-old-style-cast -Wno-double-promotion -Iinclude -Isrc -I. -Iexternal -Itest $ASAN $PREPROCESS"
 LDFLAGS="$ASAN_LDFLAGS -g -L${BUILD_DIR}"
 
