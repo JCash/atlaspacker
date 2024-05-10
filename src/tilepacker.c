@@ -980,6 +980,18 @@ static void apTilePackerPackImages(apPacker* _packer, apContext* ctx)
         image->super.placement.pos.x += image->padding;
         image->super.placement.pos.y += image->padding;
 
+        // fill in the width/height of the rect
+        if (image->super.rotation == 0 || image->super.rotation == 180)
+        {
+            image->super.placement.size.width = image->super.width;
+            image->super.placement.size.height = image->super.height;
+        }
+        else
+        {
+            image->super.placement.size.width = image->super.height;
+            image->super.placement.size.height = image->super.width;
+        }
+
         // int debug = image->pos.x == 0 && image->pos.y == 20;
         // //int debug = image->pos.x == 0 && image->pos.y == 11;
         // //int debug = image->pos.x == 13 && image->pos.y == 46;

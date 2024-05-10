@@ -24,6 +24,9 @@ typedef struct _TreeNode
     struct _TreeNode* child; // The first child
     int               type; // 0: folder, 1; file
     void*             data; // type==0: folder name, type==1: Image
+    uint8_t           selected:1;
+    uint8_t           readonly:1;
+    uint8_t           :6;
 } TreeNode;
 
 // Gets time in micro seconds

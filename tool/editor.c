@@ -5,6 +5,8 @@
 #include "state.h"
 #include "worker.h"
 
+#include <atlaspacker/exporter.h>
+
 #define SOKOL_APP_IMPL
 #define SOKOL_IMPL
 #define SOKOL_GLCORE33
@@ -40,6 +42,47 @@
 static struct {
     sg_pass_action pass_action;
 } state;
+
+static void OpenFileDialog(AppState* state)
+{
+    thread_mutex_lock(&state->mutex);
+    state->open_project_dialog = true;
+    thread_mutex_unlock(&state->mutex);
+}
+
+static void SaveFile(AppState* state)
+{
+    thread_mutex_lock(&state->mutex);
+    if (state->path == 0)
+    {
+        state->save_project_dialog = true;
+    }
+    else {
+        apSaveProject(state->path, state->project);
+    }
+
+    thread_mutex_unlock(&state->mutex);
+}
+
+static void ExportFile(AppState* state)
+{
+    thread_mutex_lock(&state->mutex);
+
+    if (!state->project)
+    {
+        // pass
+    }
+    else
+    {
+        // TODO: Each exporter could expose settings.
+        // We could store those settings as json, and pass them on to this function when exporting
+        const char* exporter_path = "exporters/defold/exporter.lua";
+        const char* output_path = "/Users/mathiaswesterdahl/work/projects/users/mawe/extension-texturepacker/examples/ap/spineboy/ap_spineboy.tpinfo";
+        apExportProject(state->project, exporter_path, output_path);
+    }
+
+    thread_mutex_unlock(&state->mutex);
+}
 
 static void DestroyTextures(AppState* state)
 {
@@ -174,7 +217,34 @@ static void OnSokolInit(void* user_data)
     CreateDefaultTexture(app_state);
 }
 
-static void DrawImageListTree(TreeNode* node)
+static void SetSelections(TreeNode* node, int select)
+{
+    node->selected = select;
+    TreeNode* child = node->child;
+    while (child)
+    {
+        SetSelections(child, select);
+        child = child->sibling;
+    }
+}
+
+static void CheckSelectNode(TreeNode* root, TreeNode* node)
+{
+    if (igIsMouseClicked_ID(ImGuiMouseButton_Left, 0, 0) && igIsItemHovered(ImGuiHoveredFlags_None))
+    {
+        if (igIsKeyDown_Nil(ImGuiKey_LeftCtrl) || igIsKeyDown_Nil(ImGuiKey_RightCtrl))
+        {
+            SetSelections(node, !node->selected);
+        }
+        else
+        {
+            SetSelections(root, 0);
+            node->selected = 1;
+        }
+    }
+}
+
+static void DrawImageListTree(TreeNode* root, TreeNode* node)
 {
     int is_folder = node->type == 0;
     Image* image = is_folder ? 0 : (Image*)node->data;
@@ -191,9 +261,10 @@ static void DrawImageListTree(TreeNode* node)
     igTableNextRow(0, 0.0f);
     igTableNextColumn();
 
+    int selected = node->selected ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_None;
     if (is_folder)
     {
-        bool open = igTreeNodeEx_Str(name, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen);
+        bool open = igTreeNodeEx_Str(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow);
         igTableNextColumn();
         igTextDisabled("--");
         if (open)
@@ -201,22 +272,24 @@ static void DrawImageListTree(TreeNode* node)
             TreeNode* child = node->child;
             while (child)
             {
-                DrawImageListTree(child);
+                DrawImageListTree(root, child);
                 child = child->sibling;
             }
 
-            // for (int child_n = 0; child_n < node->ChildCount; child_n++)
-            //     DisplayNode(&all_nodes[node->ChildIdx + child_n], all_nodes);
+            CheckSelectNode(root, node);
+
             igTreePop();
         }
     }
     else
     {
-        if (igTreeNodeEx_Str(name, ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick))
+        if (igTreeNodeEx_Str(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick))
         {
+            CheckSelectNode(root, node);
+
             if (igIsMouseDoubleClicked_ID(ImGuiMouseButton_Left, 0) && igIsItemHovered(ImGuiHoveredFlags_None))
             {
-                printf("DBL CLICK: %s\n", name);
+                printf("TODO: Open image in sprite editor: %s\n", name);
             }
         }
 
@@ -264,7 +337,7 @@ static void DrawImageList(AppState* state)
             TreeNode* node = state->images_root.child;
             while (node)
             {
-                DrawImageListTree(node);
+                DrawImageListTree(&state->images_root, node);
                 node = node->sibling;
             }
 
@@ -674,6 +747,7 @@ static TreeNode* AddTreeNode(TreeNode* parent, Image* image)
 
     node->type = 1; // 0: folder, 1; image
     node->data = (void*)image;
+    node->readonly = parent->type == 0; // if parent is a folder, we cannot remove the item
 
     AddTreeNodeInternal(parent, node);
     return node;
@@ -928,7 +1002,7 @@ static void OnSokolFrame(void* user_data)
     igDockSpace(dockspace_id, (ImVec2){0,0}, ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoTabBar, 0);
     igEnd(); // # main
 
-    /*=== UI CODE STARTS HERE ===*/
+    // === UI CODE STARTS HERE ===
 
     igBegin("#settings", 0, ImGuiWindowFlags_MenuBar);
 
@@ -946,20 +1020,12 @@ static void OnSokolFrame(void* user_data)
                 // And since the ImGui::Button() reacts on mouse UP, and the Sokol
                 // on_event callback happends before this, we need to start the process on
                 // a left click
-                app_state->open_project_dialog = true;
+                OpenFileDialog(app_state);
             }
 
             if (igMenuItem_Bool("Save", "CTRL+S", false, true))
             {
-                if (app_state->path == 0)
-                {
-                    thread_mutex_lock(&app_state->mutex);
-                    app_state->save_project_dialog = true;
-                    thread_mutex_unlock(&app_state->mutex);
-                }
-                else {
-                    apSaveProject(app_state->path, app_state->project);
-                }
+                SaveFile(app_state);
             }
             if (igIsItemClicked(ImGuiMouseButton_Left))
             {
@@ -1043,7 +1109,26 @@ static void ProjectAddSource(AppState* state, const char** paths, uint32_t num_p
 static void OnSokolEvent(const sapp_event* ev, void* user_data) {
     AppState* state = (AppState*)user_data;
 
-    if (ev->type == SAPP_EVENTTYPE_FILES_DROPPED) {
+    if (ev->type == SAPP_EVENTTYPE_KEY_DOWN)
+    {
+        if (ev->key_code == SAPP_KEYCODE_O && ev->modifiers & SAPP_MODIFIER_SUPER)
+        {
+            OpenFileDialog(state);
+        }
+        else if (ev->key_code == SAPP_KEYCODE_S && ev->modifiers & SAPP_MODIFIER_SUPER)
+        {
+            SaveFile(state);
+        }
+        else if (ev->key_code == SAPP_KEYCODE_E && ev->modifiers & SAPP_MODIFIER_SUPER)
+        {
+            ExportFile(state);
+        }
+        else {
+            simgui_handle_event(ev);
+        }
+    }
+    else if (ev->type == SAPP_EVENTTYPE_FILES_DROPPED)
+    {
 
         // the mouse position where the drop happened
         // float x = ev->mouse_x;

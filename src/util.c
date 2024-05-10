@@ -11,8 +11,6 @@
 #include <atlaspacker/util.h>
 #include <atlaspacker/atlaspacker.h>
 
-#include "render.h"
-
 #if defined(_WIN32)
     #include "win32/dirent.h"
 #else
