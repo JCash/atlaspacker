@@ -22,6 +22,8 @@
 #define THREAD_IMPLEMENTATION
 #include <thread.h>
 
+static const char* VERSION = "0.1";
+
 // #define NOC_FILE_DIALOG_IMPLEMENTATION
 // #if defined(__APPLE__)
 //     #define NOC_FILE_DIALOG_OSX
@@ -62,6 +64,20 @@ static struct {
     sg_pass_action pass_action;
 } state;
 
+static const char* GetWindowTitle(const char* path, bool dirty, char* buffer, uint32_t buffer_size)
+{
+    const char* asterisk = dirty ? "*" : "";
+    snprintf(buffer, buffer_size, "AtlasPacker %s: %s%s", VERSION, path?path:"untitled", asterisk);
+    return buffer;
+}
+
+static void UpdateWindowTitle(AppState* state, bool dirty)
+{
+    char title[1024];
+    GetWindowTitle(state->path, dirty, title, sizeof(title));
+    sapp_set_window_title(title);
+}
+
 static void OpenFileDialog(AppState* state)
 {
     thread_mutex_lock(&state->mutex);
@@ -78,6 +94,7 @@ static void SaveFile(AppState* state)
     }
     else {
         apSaveProject(state->path, state->project);
+        UpdateWindowTitle(state, false);
     }
 
     thread_mutex_unlock(&state->mutex);
@@ -1221,6 +1238,7 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
                 {
                     free(outpath);
                 }
+                UpdateWindowTitle(state, false);
             }
         }
         else if (state->open_project_dialog)
@@ -1281,6 +1299,9 @@ int main(int argc, char* argv[])
         app_state.project   = apLoadProjectFromMemory("untitled", 0);
     }
 
+    char title[1024];
+    GetWindowTitle(app_state.path, false, title, sizeof(title));
+
     sapp_desc desc = {
         .width = 1280,
         .height = 1024,
@@ -1293,8 +1314,9 @@ int main(int argc, char* argv[])
         .enable_dragndrop = true,
         .max_dropped_files = 8 *1024,
         .max_dropped_file_path_length = 8192,
-        .window_title = "AtlasPacker v0.1",
+        .window_title = title,
     };
+
     sapp_run(&desc);
 
     if (app_state.thread)
