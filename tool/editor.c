@@ -38,6 +38,25 @@
 
 #include <unistd.h> // getcwd
 
+#if defined(__APPLE__)
+    #define KEY_CODE_OPEN           SAPP_KEYCODE_O
+    #define KEY_CODE_SAVE           SAPP_KEYCODE_S
+    #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
+    #define KEY_CODE_QUIT           SAPP_KEYCODE_Q
+    #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_SUPER
+#elif defined(_WIN32)
+    #define KEY_CODE_OPEN           SAPP_KEYCODE_O
+    #define KEY_CODE_SAVE           SAPP_KEYCODE_S
+    #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
+    #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_CTRL
+#else
+    #define KEY_CODE_OPEN           SAPP_KEYCODE_O
+    #define KEY_CODE_SAVE           SAPP_KEYCODE_S
+    #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
+    #define KEY_CODE_QUIT           SAPP_KEYCODE_Q
+    #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_SUPER
+#endif
+
 // TODO: Move this to AppState
 static struct {
     sg_pass_action pass_action;
@@ -84,6 +103,7 @@ static void ExportFile(AppState* state)
     thread_mutex_unlock(&state->mutex);
 }
 
+
 static void DestroyTextures(AppState* state)
 {
     for (int i = 0; i < state->num_page_textures; ++i)
@@ -96,6 +116,18 @@ static void DestroyTextures(AppState* state)
     free((void*)state->page_textures);
 }
 
+static void Quit(AppState* state)
+{
+    thread_mutex_lock(&state->mutex);
+
+    printf("TODO: Check if the project is dirty!\n");
+    DestroyTextures(state);
+
+    if (state->project)
+        apDestroyProject(state->project);
+
+    thread_mutex_unlock(&state->mutex);
+}
 static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, int width, int height, int channels)
 {
     uint8_t* tmp = 0;
@@ -1111,21 +1143,31 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
 
     if (ev->type == SAPP_EVENTTYPE_KEY_DOWN)
     {
-        if (ev->key_code == SAPP_KEYCODE_O && ev->modifiers & SAPP_MODIFIER_SUPER)
+        if (ev->key_code == KEY_CODE_OPEN && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
         {
             OpenFileDialog(state);
         }
-        else if (ev->key_code == SAPP_KEYCODE_S && ev->modifiers & SAPP_MODIFIER_SUPER)
+        else if (ev->key_code == KEY_CODE_SAVE && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
         {
             SaveFile(state);
         }
-        else if (ev->key_code == SAPP_KEYCODE_E && ev->modifiers & SAPP_MODIFIER_SUPER)
+        else if (ev->key_code == KEY_CODE_EXPORT && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
         {
             ExportFile(state);
         }
-        else {
+        else if (ev->key_code == KEY_CODE_QUIT && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
+        {
+            sapp_request_quit();
+        }
+        else
+        {
             simgui_handle_event(ev);
         }
+    }
+    else if (ev->type == SAPP_EVENTTYPE_QUIT_REQUESTED)
+    {
+        printf("Quit requested\n");
+        Quit(state);
     }
     else if (ev->type == SAPP_EVENTTYPE_FILES_DROPPED)
     {
