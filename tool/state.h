@@ -12,6 +12,8 @@ extern "C" {
 #include <sokol_gfx.h>
 #include <sokol_app.h>
 
+#include <array.h>
+
 struct AppTexture {
     sg_image        image;
     ImTextureID     texture_id;
@@ -53,9 +55,8 @@ struct AppState
     Page*           pages;
     int             num_pages;
 
-	Image** 	images; // the raw images
-	int         num_images;
-    int         max_image_size; // What is the largest image size in the set?
+    jc::Array<Image*> images; // the raw images
+    int               max_image_size; // What is the largest image size in the set?
 
 	TreeNode    images_root; // The tree of images
 

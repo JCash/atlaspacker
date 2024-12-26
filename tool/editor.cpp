@@ -476,7 +476,7 @@ static void ThreadRecreateAtlas(void* _ctx)
 
         // TODO: Make sure we only create apImages for the unique images that we want to pack
         // Any many-to-one mappings needs to happe before this point.
-        for (int i = 0; i < state->num_images; ++i)
+        for (int i = 0; i < state->images.Size(); ++i)
         {
             Image* image = state->images[i];
             apAddImage(project->context, image->path, image->width, image->height, image->channels, image->data);
@@ -879,12 +879,10 @@ static void ThreadLoadImages(void* ctx)
 
     /////////////////////////////////////////////////////////////////////
     // TODO: Don't reload all images. Instead check if they're already loaded, or if they're not referenced anymore
-    for (int i = 0; i < state->num_images; ++i)
+    for (int i = 0; i < state->images.Size(); ++i)
     {
         DestroyImage(state->images[i]);
     }
-    free((void*)state->images);
-    state->num_images = 0;
     /////////////////////////////////////////////////////////////////////
 
     // Build a tree from this list of images
@@ -963,14 +961,14 @@ static void ThreadLoadImages(void* ctx)
         first = first->next;
     }
 
-    state->images = (Image**)malloc(sizeof(Image*)*count);
+    state->images.SetCapacity(count);
+    state->images.SetSize(0);
 
     state->max_image_size = 0;
-    count = 0;
     first = image_list.next;
     while (first)
     {
-        state->images[count++] = first;
+        state->images.Push(first);
 
         if (first->width > state->max_image_size)
             state->max_image_size = first->width;
@@ -979,9 +977,8 @@ static void ThreadLoadImages(void* ctx)
 
         first = first->next;
     }
-    state->num_images = count;
 
-    SortImages(state->images, state->num_images);
+    SortImages(state->images.Begin(), state->images.Size());
 
     state->loading_images = 0;
 
@@ -990,7 +987,7 @@ static void ThreadLoadImages(void* ctx)
     thread_mutex_unlock(&state->mutex);
 
     uint64_t tend = GetTime();
-    printf("ThreadLoadImages: Loaded %d images in %.3f s!\n", state->num_images, (tend - tstart) / 1000000.0f);
+    printf("ThreadLoadImages: Loaded %zu images in %.3f s!\n", state->images.Size(), (tend - tstart) / 1000000.0f);
 }
 
 static void OnSokolFrame(void* user_data)
