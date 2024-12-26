@@ -45,16 +45,19 @@ compile_objc_file external/nativefiledialog/src/nfd_cocoa.m ${PREFIX}
 compile_lib nfd ${PREFIX}
 
 echo "************************************************"
-echo "  CIMGUI"
+echo "  DEAR IMGUI"
 echo "************************************************"
 
-CIMGUI_BUILD_DIR=./external/repos/cimgui/build
-mkdir -p ${CIMGUI_BUILD_DIR}
-pushd ${CIMGUI_BUILD_DIR}
-cmake -DIMGUI_STATIC=1 ..
-make -j8
-cp -v cimgui${LIB_SUFFIX} ${BUILD_DIR}/libcimgui${LIB_SUFFIX}
-popd
+PREFIX=lib_imgui
+IMGUI_BUILD_DIR=./external/repos/imgui/build
+
+CXXFLAGS="${CXXFLAGS} -Iexternal -Iexternal/repos/stb -Wno-unused-function -Wno-implicit-int-conversion -Wno-shorten-64-to-32"
+compile_cpp_file external/repos/imgui/imgui.cpp ${PREFIX}
+compile_cpp_file external/repos/imgui/imgui_draw.cpp ${PREFIX}
+compile_cpp_file external/repos/imgui/imgui_tables.cpp ${PREFIX}
+compile_cpp_file external/repos/imgui/imgui_widgets.cpp ${PREFIX}
+compile_cpp_file external/repos/imgui/imgui_demo.cpp ${PREFIX}
+compile_lib imgui ${PREFIX}
 
 echo "************************************************"
 echo "  LUA 5.1"

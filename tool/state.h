@@ -1,31 +1,39 @@
 #pragma once
 
-#include <atlaspacker/util.h>
-#include <atlaspacker/project.h>
-#include <thread.h>
-#include "worker.h"
+extern "C" {
+    #include <atlaspacker/util.h>
+    #include <atlaspacker/project.h>
+    #include <thread.h>
+    #include "worker.h"
+}
+
+#include <imgui.h>
 
 #include <sokol_gfx.h>
 #include <sokol_app.h>
-#include <sokol_imgui.h> // for simgui_image_t
-typedef void* ImTextureID;
 
-
-typedef struct {
+struct AppTexture {
     sg_image        image;
-    simgui_image_t  imgui_image;
     ImTextureID     texture_id;
-} AppTexture;
+};
 
-typedef struct {
+typedef void (*FileDialogCallbackFn)(struct AppState* state, const char** paths, int num_paths);
+
+struct AppState
+{
     const char* path;
     apProject*  project;
 
     // Trick to delay open a file dialog
-    int         open_project_dialog:1;	// For opening a project open dialog
-    int         save_project_dialog:1;  // For opening a project save dialog
-    int         open_file_dialog:1;		// For adding an image file to the project
-    int         open_folder_dialog:1;	// For adding a folder containing image file to the project
+    int                     open_project_dialog:1;	// For opening a project open dialog
+    int                     save_project_dialog:1;  // For opening a project save dialog
+    int                     open_file_dialog:1;		// For adding an image file to the project
+    int                     open_folder_dialog:1;	// For adding a folder containing image file to the project
+    const char*             file_dialog_extensions;
+    FileDialogCallbackFn    file_dialog_callback;
+
+    // state
+    int         dirty:1; // Changes were made, and the project is dirty
 
     // Async state
     int         dirty_fileset; 	// The images need to be loaded
@@ -53,5 +61,5 @@ typedef struct {
 
     // Debug draw options
     bool        debug_draw_triangles;
+};
 
-} AppState;

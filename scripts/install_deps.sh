@@ -14,12 +14,12 @@ if [ ! -d ./external/repos/sokol ]; then
     (cd ./external/repos && git clone https://github.com/floooh/sokol.git)
 fi
 
-if [ ! -d ./external/repos/cimgui ]; then
-    echo "Cloning cimgui"
-    (cd ./external/repos && git clone --recursive https://github.com/cimgui/cimgui.git)
-fi
-
 if [ ! -d ./external/repos/stb ]; then
     echo "Cloning stb"
     (cd ./external/repos && git clone https://github.com/nothings/stb.git)
+fi
+
+if [ ! -d ./external/repos/imgui ]; then
+    echo "Cloning Dear ImGui"
+    (cd ./external/repos && git clone --recursive git@github.com:ocornut/imgui.git)
 fi

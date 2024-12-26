@@ -1,26 +1,33 @@
-
 #include <stdint.h>
 
-// Editor related
 #include "state.h"
-#include "worker.h"
 
-#include <atlaspacker/exporter.h>
+extern "C" {
+    #include "worker.h"
+
+    #include <atlaspacker/exporter.h>
+
+    #include <atlaspacker/project.h>
+
+    #include <nfd.h>
+
+    #define THREAD_IMPLEMENTATION
+    #include <thread.h>
+}
+
+#include <imgui.h>
+#include <imgui_internal.h> // Until the dock builder API is stable
 
 #define SOKOL_APP_IMPL
 #define SOKOL_IMPL
-#define SOKOL_GLCORE33
+#define SOKOL_IMGUI_IMPL
+#define SOKOL_GLCORE
 #define SOKOL_NO_ENTRY
 #include <sokol_app.h>
 #include <sokol_log.h>
 #include <sokol_gfx.h>
 #include <sokol_glue.h>
-#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
-#include <cimgui.h>
 #include <sokol_imgui.h>
-
-#define THREAD_IMPLEMENTATION
-#include <thread.h>
 
 static const char* VERSION = "0.1";
 
@@ -34,11 +41,9 @@ static const char* VERSION = "0.1";
 // #endif
 // #include <noc_file_dialog.h>
 
-#include <nfd.h>
-
-#include <atlaspacker/project.h>
-
 #include <unistd.h> // getcwd
+
+static void OnFileDialogAddImages(AppState* state, const char** paths, int numpaths);
 
 #if defined(__APPLE__)
     #define KEY_CODE_OPEN           SAPP_KEYCODE_O
@@ -126,7 +131,7 @@ static void DestroyTextures(AppState* state)
     for (int i = 0; i < state->num_page_textures; ++i)
     {
         AppTexture* texture = &state->page_textures[i];
-        simgui_destroy_image(texture->imgui_image);
+        //simgui_destroy_image(texture->imgui_image);
         sg_destroy_image(texture->image);
     }
 
@@ -176,11 +181,11 @@ static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, 
     def_image_desc.label = "atlas-image";
 
     texture->image = sg_make_image(&def_image_desc);
-    texture->imgui_image = simgui_make_image(&(simgui_image_desc_t){
-            .image = texture->image,
-            .sampler = { 0 }, // TODO: Create a NEAREST sampler
-        });
-    texture->texture_id = simgui_imtextureid(texture->imgui_image);
+    // texture->imgui_image = simgui_make_image(&(simgui_image_desc_t){
+    //         .image = texture->image,
+    //         .sampler = { 0 }, // TODO: Create a NEAREST sampler
+    //     });
+    texture->texture_id = simgui_imtextureid(texture->image);
 
     if (tmp)
     {
@@ -246,13 +251,16 @@ static void OnSokolInit(void* user_data)
 {
     AppState* app_state = (AppState*)user_data;
 
-    sg_setup(&(sg_desc){
+    sg_desc desc = {
         .environment = sglue_environment(),
         .logger.func = slog_func,
-    });
-    simgui_setup(&(simgui_desc_t){ 0 });
+    };
+    sg_setup(&desc);
 
-    igGetIO()->ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    simgui_desc_t imdesc = { 0 };
+    simgui_setup(&imdesc);
+
+    ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // initial clear color
     state.pass_action = (sg_pass_action) {
@@ -279,9 +287,9 @@ static void SetSelections(TreeNode* node, int select)
 
 static void CheckSelectNode(TreeNode* root, TreeNode* node)
 {
-    if (igIsMouseClicked_ID(ImGuiMouseButton_Left, 0, 0) && igIsItemHovered(ImGuiHoveredFlags_None))
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered(ImGuiHoveredFlags_None))
     {
-        if (igIsKeyDown_Nil(ImGuiKey_LeftCtrl) || igIsKeyDown_Nil(ImGuiKey_RightCtrl))
+        if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl))
         {
             SetSelections(node, !node->selected);
         }
@@ -307,15 +315,15 @@ static void DrawImageListTree(TreeNode* root, TreeNode* node)
             name++;
     }
 
-    igTableNextRow(0, 0.0f);
-    igTableNextColumn();
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
 
     int selected = node->selected ? ImGuiTreeNodeFlags_Selected : ImGuiTreeNodeFlags_None;
     if (is_folder)
     {
-        bool open = igTreeNodeEx_Str(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow);
-        igTableNextColumn();
-        igTextDisabled("--");
+        bool open = ImGui::TreeNodeEx(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_OpenOnArrow);
+        ImGui::TableNextColumn();
+        ImGui::TextDisabled("--");
         if (open)
         {
             TreeNode* child = node->child;
@@ -327,56 +335,54 @@ static void DrawImageListTree(TreeNode* root, TreeNode* node)
 
             CheckSelectNode(root, node);
 
-            igTreePop();
+            ImGui::TreePop();
         }
     }
     else
     {
-        if (igTreeNodeEx_Str(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick))
+        if (ImGui::TreeNodeEx(name, selected | ImGuiTreeNodeFlags_SpanFullWidth | ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet | ImGuiTreeNodeFlags_NoTreePushOnOpen | ImGuiTreeNodeFlags_OpenOnDoubleClick))
         {
             CheckSelectNode(root, node);
 
-            if (igIsMouseDoubleClicked_ID(ImGuiMouseButton_Left, 0) && igIsItemHovered(ImGuiHoveredFlags_None))
+            if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered(ImGuiHoveredFlags_None))
             {
                 printf("TODO: Open image in sprite editor: %s\n", name);
             }
         }
 
-        igTableNextColumn();
-        igTextDisabled("--");
-        //igText("%d x %d x %d", image->width, image->width, image->channels);
+        ImGui::TableNextColumn();
+        ImGui::TextDisabled("--");
+        //ImGui::Text("%d x %d x %d", image->width, image->width, image->channels);
     }
 }
 
 static void DrawImageList(AppState* state)
 {
-    igSeparator();
+    ImGui::Separator();
 
-    ImVec2 tsz;
     const char* text = "A";
-    igCalcTextSize(&tsz, text, text+1, false, -1.0f);
+    ImVec2 tsz = ImGui::CalcTextSize(text, text+1);
 
-    ImVec2 wsize;
-    igGetWindowSize(&wsize);
+    ImVec2 wsize = ImGui::GetWindowSize();
 
     ImGuiTableFlags table_flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
-    if (igBeginTable("Images", 2, table_flags, (ImVec2){wsize.x - igGetStyle()->ScrollbarSize, wsize.y -100}, 0.0f))
+    if (ImGui::BeginTable("Images", 2, table_flags, ImVec2(wsize.x - ImGui::GetStyle().ScrollbarSize, wsize.y -100)))
     {
-        igTableSetupColumn("Name", ImGuiTableColumnFlags_NoHide, 0.0f, 0);
-        igTableSetupColumn("Info", ImGuiTableColumnFlags_WidthFixed, tsz.x * 18.0f, 0);
-        igTableHeadersRow();
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_NoHide);
+        ImGui::TableSetupColumn("Info", ImGuiTableColumnFlags_WidthFixed, tsz.x * 18.0f);
+        ImGui::TableHeadersRow();
 
         if (!state->project || !state->project->num_sources)
         {
-            igTableNextRow(0, 0.0f);
-            igTableNextColumn(); igText("Drop");
-            igTableNextColumn(); igTextDisabled("--");
-            igTableNextRow(0, 0.0f);
-            igTableNextColumn(); igText("files");
-            igTableNextColumn(); igTextDisabled("--");
-            igTableNextRow(0, 0.0f);
-            igTableNextColumn(); igText("here!");
-            igTableNextColumn(); igTextDisabled("--");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("Drop");
+            ImGui::TableNextColumn(); ImGui::TextDisabled("--");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("files");
+            ImGui::TableNextColumn(); ImGui::TextDisabled("--");
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("here!");
+            ImGui::TableNextColumn(); ImGui::TextDisabled("--");
         }
         else
         {
@@ -393,21 +399,21 @@ static void DrawImageList(AppState* state)
             thread_mutex_unlock(&state->mutex);
         }
 
-        igEndTable();
+        ImGui::EndTable();
     }
 
-    igSeparator();
-    igIndent(16);
+    ImGui::Separator();
+    ImGui::Indent(16);
 
-    igBeginDisabled(state->open_file_dialog != 0 ||
-                    state->open_folder_dialog != 0 ||
-                    state->loading_images);
+    ImGui::BeginDisabled(state->open_file_dialog != 0 ||
+                        state->open_folder_dialog != 0 ||
+                        state->loading_images);
 
-        if (igButton("Add Image(s)", (ImVec2){0,0}))
+        if (ImGui::Button("Add Image(s)"))
         {
             // See comment below
         }
-        if (igIsItemClicked(ImGuiMouseButton_Left))
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
         {
             // macOS: Since the file dialog mustn't be opened in the
             // scope of a sokol frame, we need to delay it.
@@ -415,22 +421,24 @@ static void DrawImageList(AppState* state)
             // on_event callback happends before this, we need to start the process on
             // a left click
             state->open_file_dialog = true;
+            state->file_dialog_extensions = "png,jpg";
+            state->file_dialog_callback = (FileDialogCallbackFn)OnFileDialogAddImages;
         }
 
-        igSameLine(0, igGetStyle()->ItemSpacing.x);
-        if (igButton("Add Folder", (ImVec2){0,0}))
+        ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
+        if (ImGui::Button("Add Folder"))
         {
             // See comment above
         }
-        if (igIsItemClicked(ImGuiMouseButton_Left))
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
         {
             // macOS: see comment above
             state->open_folder_dialog = true;
         }
-        igSameLine(0, igGetStyle()->ItemSpacing.x);
-    igEndDisabled();
+        ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
+    ImGui::EndDisabled();
 
-    igNewLine();
+    ImGui::NewLine();
 }
 
 
@@ -508,9 +516,9 @@ static void DrawPackerOptions(AppState* state)
     apProject* project = state->project;
     int dirty = 0;
 
-    igBeginGroup();
+    ImGui::BeginGroup();
 
-    igText("General Packer Options");
+    ImGui::Text("General Packer Options");
 
     int page_sizes[8] = { 0 };
     int num_page_sizes = 1;
@@ -531,7 +539,7 @@ static void DrawPackerOptions(AppState* state)
     if (page_size_index)
         snprintf(page_size_str, sizeof(page_size_str), "%d", page_sizes[page_size_index]);
 
-    if (igSliderInt("Page Size (texels)", &page_size_index, 0, num_page_sizes-1, page_size_str, 0))
+    if (ImGui::SliderInt("Page Size (texels)", &page_size_index, 0, num_page_sizes-1, page_size_str, 0))
     {
         int old_size = project->options.page_size;
         int new_size = page_sizes[page_size_index];
@@ -542,25 +550,25 @@ static void DrawPackerOptions(AppState* state)
         }
     }
 
-    igEndGroup();
+    ImGui::EndGroup();
 
-    igSeparator();
+    ImGui::Separator();
 
     PackerType packer_types[] = {PT_TILEPACKER, PT_BINPACKER};
     const char* packertype_items[] = {"TilePacker", "BinPacker"};
     int num_packertype_items = sizeof(packertype_items)/sizeof(packertype_items[0]);
 
     int packer_type_index = project->packer_type;
-    if (igCombo_Str_arr("Packer Type", &packer_type_index, packertype_items, num_packertype_items, 0))
+    if (ImGui::Combo("Packer Type", &packer_type_index, packertype_items, num_packertype_items, 0))
     {
         project->packer_type = packer_types[packer_type_index];
 
         dirty = 1;
     }
 
-    igSeparator();
+    ImGui::Separator();
 
-    igText("Packer Type Specific options");
+    ImGui::Text("Packer Type Specific options");
 
     if (project->packer_type == PT_TILEPACKER)
     {
@@ -581,7 +589,7 @@ static void DrawPackerOptions(AppState* state)
         char tile_size_str[64];
         snprintf(tile_size_str, sizeof(tile_size_str), "%d", tile_sizes[tile_size_index]);
 
-        if (igSliderInt("Tile Size (texels)", &tile_size_index, 0, num_tile_sizes-1, tile_size_str, 0))
+        if (ImGui::SliderInt("Tile Size (texels)", &tile_size_index, 0, num_tile_sizes-1, tile_size_str, 0))
         {
             int old_size = options->tile_size;
             int new_size = tile_sizes[tile_size_index];
@@ -593,18 +601,18 @@ static void DrawPackerOptions(AppState* state)
         }
 
         bool no_rotate = (bool)options->no_rotate;
-        if (igCheckbox("No Rotate", &no_rotate))
+        if (ImGui::Checkbox("No Rotate", &no_rotate))
         {
             options->no_rotate = (int)no_rotate;
             dirty = 1;
         }
 
-        if (igSliderInt("Padding (texels)", &options->padding, 0, 16, "%d", ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderInt("Padding (texels)", &options->padding, 0, 16, "%d", ImGuiSliderFlags_AlwaysClamp))
         {
             dirty = 1;
         }
 
-        if (igSliderInt("Alpha threshold", &options->alpha_threshold, 1, 255, "%d", ImGuiSliderFlags_AlwaysClamp))
+        if (ImGui::SliderInt("Alpha threshold", &options->alpha_threshold, 1, 255, "%d", ImGuiSliderFlags_AlwaysClamp))
         {
             dirty = 1;
         }
@@ -617,25 +625,25 @@ static void DrawPackerOptions(AppState* state)
         int num_binpackertype_items = sizeof(binpackertype_items)/sizeof(binpackertype_items[0]);
 
         int binpacker_type_index = (int)options->mode;
-        if (igCombo_Str_arr("Bin Packer Mode", &binpacker_type_index, binpackertype_items, num_binpackertype_items, 0))
+        if (ImGui::Combo("Bin Packer Mode", &binpacker_type_index, binpackertype_items, num_binpackertype_items, 0))
         {
             options->mode = (apBinPackMode)binpacker_type_index;
             dirty = 1;
         }
 
         bool no_rotate = (bool)options->no_rotate;
-        if (igCheckbox("No Rotate", &no_rotate))
+        if (ImGui::Checkbox("No Rotate", &no_rotate))
         {
             options->no_rotate = (int)no_rotate;
             dirty = 1;
         }
     }
 
-    igSeparator();
+    ImGui::Separator();
 
-    igText("Debug options");
+    ImGui::Text("Debug options");
 
-    if (igCheckbox("Draw Triangles", &state->debug_draw_triangles))
+    if (ImGui::Checkbox("Draw Triangles", &state->debug_draw_triangles))
     {
     }
 
@@ -652,24 +660,23 @@ static void DrawAtlasPages(AppState* state)
 
     if (state->project->context)
     {
-        igText("Atlas: %d pages, %d x %d", state->num_page_textures, state->page_size.width, state->page_size.height);
+        ImGui::Text("Atlas: %d pages, %d x %d", state->num_page_textures, state->page_size.width, state->page_size.height);
     }
     else
     {
-        igText("");
+        ImGui::Text("");
     }
 
-    igBeginChild_Str("#atlas_texture", (ImVec2){0,0}, 0, 0);
+    ImGui::BeginChild("#atlas_texture");
 
-    ImVec2 size;
-    igGetWindowSize(&size);
+    ImVec2 size = ImGui::GetWindowSize();
 
     //static float zoom = 1.0f;
 
-    if (igIsKeyDown_Nil(ImGuiKey_MouseWheelY) && igIsKeyDown_Nil(ImGuiMod_Ctrl))
+    if (ImGui::IsKeyDown(ImGuiKey_MouseWheelY) && ImGui::IsKeyDown(ImGuiMod_Ctrl))
     {
         const float zoom_speed = 0.01f;
-        state->zoom += igGetIO()->MouseWheel * zoom_speed;
+        state->zoom += ImGui::GetIO().MouseWheel * zoom_speed;
         if (state->zoom < 0.02f)
             state->zoom = 0.02f;
         if (state->zoom > 3.0f)
@@ -684,16 +691,15 @@ static void DrawAtlasPages(AppState* state)
     {
         ImVec2 uv0 = {0,0};
         ImVec2 uv1 = {1,1};
-        igSameLine(0, 0);
+        ImGui::SameLine(0, 0);
 
-        ImVec2 start_pos;
-        igGetCursorScreenPos(&start_pos);
+        ImVec2 start_pos = ImGui::GetCursorScreenPos();
 
-        igImage(state->page_textures[i].texture_id, size, uv0, uv1, (ImVec4){1,1,1,1}, (ImVec4){0,0,0,0});
+        ImGui::Image(state->page_textures[i].texture_id, size, uv0, uv1);
 
         if (state->debug_draw_triangles)
         {
-            ImDrawList* draw_list = igGetWindowDrawList();
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
             ImVec2 pos = start_pos;
             pos.x += size.x * 0.5f;
@@ -742,7 +748,7 @@ static void DrawAtlasPages(AppState* state)
 
                         ImVec2 a = { p0.x, p0.y };
                         ImVec2 b = { p1.x, p1.y };
-                        ImDrawList_AddLine(draw_list, a, b, 0xFF00F0FF, 1.0f);
+                        draw_list->AddLine(a, b, 0xFF00F0FF, 1.0f);
                     }
 
                     image = image->next;
@@ -751,7 +757,7 @@ static void DrawAtlasPages(AppState* state)
         }
     }
 
-    igEndChild();
+    ImGui::EndChild();
 
     thread_mutex_unlock(&state->mutex);
 }
@@ -870,7 +876,6 @@ static void ThreadLoadImages(void* ctx)
         project = state->project;
         num_sources = project->num_sources;
         sources = project->sources;
-    thread_mutex_unlock(&state->mutex);
 
     /////////////////////////////////////////////////////////////////////
     // TODO: Don't reload all images. Instead check if they're already loaded, or if they're not referenced anymore
@@ -978,11 +983,11 @@ static void ThreadLoadImages(void* ctx)
 
     SortImages(state->images, state->num_images);
 
-    thread_mutex_lock(&state->mutex);
-        state->loading_images = 0;
-    thread_mutex_unlock(&state->mutex);
+    state->loading_images = 0;
 
     RecreateAtlas(state);
+
+    thread_mutex_unlock(&state->mutex);
 
     uint64_t tend = GetTime();
     printf("ThreadLoadImages: Loaded %d images in %.3f s!\n", state->num_images, (tend - tstart) / 1000000.0f);
@@ -1009,60 +1014,61 @@ static void OnSokolFrame(void* user_data)
     int width = sapp_width();
     int height = sapp_height();
 
-    simgui_new_frame(&(simgui_frame_desc_t){
+    simgui_frame_desc_t frame_desc = {
         .width = sapp_width(),
         .height = sapp_height(),
         .delta_time = sapp_frame_duration(),
         .dpi_scale = sapp_dpi_scale(),
-    });
+    };
+    simgui_new_frame(&frame_desc);
 
-    igSetNextWindowPos((ImVec2){0,0}, ImGuiCond_Always, (ImVec2){0,0});
-    igSetNextWindowSize((ImVec2){width, height}, ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
 
-    igBegin("#main", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
+    ImGui::Begin("#main", 0, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove);
 
-    ImGuiID dockspace_id = igGetID_Str("MyDockSpace");
+    ImGuiID dockspace_id = ImGui::GetID("MyDockSpace");
     static bool dock_init = true;
     if (dock_init)
     {
         dock_init = false;
 
-        igDockBuilderRemoveNode(dockspace_id);
-        igDockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+        ImGui::DockBuilderRemoveNode(dockspace_id);
+        ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
 
-        igDockBuilderSetNodeSize(dockspace_id, (ImVec2){width, height});
+        ImGui::DockBuilderSetNodeSize(dockspace_id, ImVec2(width, height));
 
         ImGuiID dockLeft;
         ImGuiID dockRight;
-        igDockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, &dockLeft, &dockRight);
+        ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, &dockLeft, &dockRight);
 
         int left_size = width/3;
         if (left_size < 300)
             left_size = 300;
-        igDockBuilderSetNodeSize(dockLeft, (ImVec2){left_size, height});
+        ImGui::DockBuilderSetNodeSize(dockLeft, ImVec2(left_size, height));
 
-        igDockBuilderDockWindow("#settings", dockLeft);
-        igDockBuilderDockWindow("#textures", dockRight);
+        ImGui::DockBuilderDockWindow("#settings", dockLeft);
+        ImGui::DockBuilderDockWindow("#textures", dockRight);
 
-        igDockBuilderFinish(dockspace_id);
+        ImGui::DockBuilderFinish(dockspace_id);
 
     }
 
-    igDockSpace(dockspace_id, (ImVec2){0,0}, ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoTabBar, 0);
-    igEnd(); // # main
+    ImGui::DockSpace(dockspace_id, ImVec2(0,0), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoTabBar, 0);
+    ImGui::End(); // # main
 
     // === UI CODE STARTS HERE ===
 
-    igBegin("#settings", 0, ImGuiWindowFlags_MenuBar);
+    ImGui::Begin("#settings", 0, ImGuiWindowFlags_MenuBar);
 
-    if (igBeginMenuBar())
+    if (ImGui::BeginMenuBar())
     {
-        if (igBeginMenu("File", true))
+        if (ImGui::BeginMenu("File"))
         {
-            if (igMenuItem_Bool("Open...", "CTRL+O", false, true))
+            if (ImGui::MenuItem("Open...", "CTRL+O"))
             {
             }
-            if (igIsItemClicked(ImGuiMouseButton_Left))
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
                 // macOS: Since the file dialog mustn't be opened in the
                 // scope of a sokol frame, we need to delay it.
@@ -1072,11 +1078,11 @@ static void OnSokolFrame(void* user_data)
                 OpenFileDialog(app_state);
             }
 
-            if (igMenuItem_Bool("Save", "CTRL+S", false, true))
+            if (ImGui::MenuItem("Save", "CTRL+S"))
             {
                 SaveFile(app_state);
             }
-            if (igIsItemClicked(ImGuiMouseButton_Left))
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
                 // macOS: Since the file dialog mustn't be opened in the
                 // scope of a sokol frame, we need to delay it.
@@ -1086,53 +1092,53 @@ static void OnSokolFrame(void* user_data)
                 app_state->save_project_dialog = true;
             }
 
-            igEndMenu();
+            ImGui::EndMenu();
         }
-        igEndMenuBar();
+        ImGui::EndMenuBar();
     }
 
-    if (igBeginTabBar("#tabs", 0))
+    if (ImGui::BeginTabBar("#tabs"))
     {
-        if (igBeginTabItem("Images", 0, ImGuiTabItemFlags_NoCloseButton))
+        if (ImGui::BeginTabItem("Images", 0, ImGuiTabItemFlags_None))
         {
             DrawImageList(app_state);
-            igEndTabItem();
+            ImGui::EndTabItem();
         }
 
-        if (igBeginTabItem("Packer", 0, ImGuiTabItemFlags_NoCloseButton))
+        if (ImGui::BeginTabItem("Packer", 0, ImGuiTabItemFlags_None))
         {
             DrawPackerOptions(app_state);
-            igEndTabItem();
+            ImGui::EndTabItem();
         }
 
-        if (igBeginTabItem("Exporter", 0, ImGuiTabItemFlags_NoCloseButton))
+        if (ImGui::BeginTabItem("Exporter", 0, ImGuiTabItemFlags_None))
         {
             //DrawExporterOptions();
-            igEndTabItem();
+            ImGui::EndTabItem();
         }
 
-        igEndTabBar();
+        ImGui::EndTabBar();
     }
-    igEnd();
+    ImGui::End();
 
-    igBegin("#textures", 0, 0);
-        if (igBeginTabBar("#textures_tabs", 0))
+    ImGui::Begin("#textures");
+        if (ImGui::BeginTabBar("#textures_tabs"))
         {
-            if (igBeginTabItem("#pages", 0, ImGuiTabItemFlags_NoCloseButton))
+            if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
             {
                 DrawAtlasPages(app_state);
-                igEndTabItem();
+                ImGui::EndTabItem();
             }
 
-            igEndTabBar();
+            ImGui::EndTabBar();
         }
-    igEnd();
+    ImGui::End();
 
-    igShowDemoWindow(0);
+    ImGui::ShowDemoWindow();
 
     /*=== UI CODE ENDS HERE ===*/
-
-    sg_begin_pass(&(sg_pass){ .action = state.pass_action, .swapchain = sglue_swapchain() });
+    sg_pass pass = { .action = state.pass_action, .swapchain = sglue_swapchain() };
+    sg_begin_pass(&pass);
     simgui_render();
     sg_end_pass();
     sg_commit();
@@ -1148,12 +1154,26 @@ static void ProjectAddSource(AppState* state, const char** paths, uint32_t num_p
     thread_mutex_lock(&state->mutex);
 
     apProject* p = state->project;
-    apProjectAddSources(p, paths, num_paths);
+    if (p)
+    {
+        apProjectAddSources(p, paths, num_paths);
 
-    state->dirty_fileset = 1;
+        state->dirty_fileset = 1;
+    }
 
     thread_mutex_unlock(&state->mutex);
 }
+
+// ********************************************************************************************
+// File dialog callbacks
+
+static void OnFileDialogAddImages(AppState* state, const char** paths, int numpaths)
+{
+    printf("Add file: %s %d", paths[0], numpaths);
+    ProjectAddSource(state, paths, numpaths);
+}
+
+// ********************************************************************************************
 
 static void OnSokolEvent(const sapp_event* ev, void* user_data) {
     AppState* state = (AppState*)user_data;
@@ -1207,12 +1227,19 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
         if (state->open_file_dialog)
         {
             nfdchar_t* outpath = 0;
-            nfdresult_t result = NFD_OpenDialog("png,jpg", 0, &outpath);
+            // nfdresult_t result = NFD_OpenDialog("png,jpg", 0, &outpath);
+            // if (NFD_OKAY == result)
+            // {
+            //     ProjectAddSource(state, (const char**)&outpath, 1);
+            //     free(outpath);
+            // }
+            nfdresult_t result = NFD_OpenDialog(state->file_dialog_extensions, 0, &outpath);
             if (NFD_OKAY == result)
             {
-                ProjectAddSource(state, (const char**)&outpath, 1);
+                state->file_dialog_callback(state, (const char**)&outpath, 1);
                 free(outpath);
             }
+
         }
         else if (state->open_folder_dialog)
         {
@@ -1292,6 +1319,12 @@ int main(int argc, char* argv[])
         app_state.path = argv[argc-1];
         app_state.project = apLoadProjectFromPath(app_state.path);
         app_state.dirty_fileset = 1;
+
+        if (!app_state.project)
+        {
+            fprintf(stderr, "Failed to read prooject from %s\n", app_state.path);
+            app_state.project   = apLoadProjectFromMemory("untitled", 0);
+        }
     }
     else
     {

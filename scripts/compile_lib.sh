@@ -5,7 +5,7 @@ set -e
 SCRIPTDIR=$(dirname "$0")
 source ${SCRIPTDIR}/compile.sh
 
-PREFIX=lib_
+PREFIX=lib_ap_
 
 LUA_DIR=$(realpath ${SCRIPTDIR}/../external/repos)
 echo LUA_DIR=${LUA_DIR}

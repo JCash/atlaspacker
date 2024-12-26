@@ -26,10 +26,16 @@ uint64_t GetTime()
     return apGetTime();
 }
 
-Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)
+static Image* AllocImage()
 {
     Image* image = (Image*)malloc(sizeof(Image));
-    image->next = 0;
+    memset(image, 0, sizeof(*image));
+    return image;
+}
+
+Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)
+{
+    Image* image = AllocImage();
     image->data = (uint8_t*)malloc((uint32_t)(w * h * c));
     image->width = w;
     image->height = h;
@@ -48,7 +54,7 @@ Image* CreateImage(const char* path, uint32_t color, int w, int h, int c)
 
 Image* LoadImage(const char* path)
 {
-    Image* image = (Image*)malloc(sizeof(Image));
+    Image* image = AllocImage();
     image->data = STBI_load(path, &image->width, &image->height, &image->channels);
     if (!image->data)
     {
@@ -228,10 +234,11 @@ uint8_t* ReadFile(const char* path, uint32_t* file_size)
 	uint32_t length = (uint32_t)ftell(file);
 	fseek(file, 0, SEEK_SET);
 
-	uint8_t* data = (uint8_t*)malloc(length);
+	uint8_t* data = (uint8_t*)malloc(length+1);
 	fread(data, 1, length, file);
 	fclose(file);
 
+    data[length] = 0; // in case it's a string
 	return data;
 }
 
