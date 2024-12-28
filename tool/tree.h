@@ -31,6 +31,7 @@ TreeNode*   TreeNodeCreateFolder(const char* path);
 TreeNode*   TreeNodeCreateImage(const char* path);
 void        TreeNodeDestroy(TreeNode* node);
 void        TreeNodeAdd(TreeNode* parent, TreeNode* node);
+TreeNode*   TreeNodeFindChild(TreeNode* node, const char* path);
 
 // Clone a single node, but with no sibling/child
 TreeNode*   TreeNodeClone(TreeNode* node);

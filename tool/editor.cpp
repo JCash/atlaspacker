@@ -809,19 +809,6 @@ struct ImageListContext
     }
 };
 
-
-// static Image* ImageLoad(ImageLoaderContext* ctx, const char* path)
-// {
-//     const char* suffix = strrchr(path, '.');
-//     if (!IsImageSuffix(suffix))
-//         return 0;
-
-//     // The list becomes in reverse order, but we will sort it anyways
-//     Image* image = LoadImage(path);
-
-//     return image;
-// }
-
 static int ImageListIterator(void* _ctx, const char* path)
 {
     ImageListContext* ctx = (ImageListContext*)_ctx;
@@ -833,36 +820,6 @@ static int ImageListIterator(void* _ctx, const char* path)
     ctx->AddPath(path);
     return 0;
 }
-
-// static int ImageLoadIterator(void* _ctx, const char* path)
-// {
-//     ImageLoaderContext* ctx = (ImageLoaderContext*)_ctx;
-
-//     const char* suffix = strrchr(path, '.');
-//     if (!IsImageSuffix(suffix))
-//         return 0; // continue
-
-//     Image* image = ImageLoad(ctx, path);
-
-//     // Add it to the list
-//     image->next = ctx->list->next;
-//     ctx->list->next = image;
-
-//     // Hook it into the tree
-//     AddTreeNode(ctx->parent, image);
-
-//     return image ? 0 : 1; // The iterator wants 1 to quit, 0 to continue
-// }
-
-// static bool IsImageLoaded(AppState* state, const char* path)
-// {
-//     hash_t path_hash = Hash(path);
-//     thread_mutex_unlock(&state->mutex);
-//         Image** pimage = state->images.Get(path_hash);
-//         bool result = pimage != 0;
-//     thread_mutex_unlock(&state->mutex);
-//     return result;
-// }
 
 static Image* GetImage(AppState* state, hash_t path_hash)
 {
@@ -898,11 +855,15 @@ static void LoadImageAndAddNode(AppState* state, TreeNode* parent, const char* p
         AddImage(state, image);
         image->path_hash = path_hash;
     }
-    // increment ref count
+    // TODO: increment ref count
 
     // Hook it into the tree
-    TreeNode* n = TreeNodeCreateImage(path);
-    TreeNodeAdd(parent, n);
+    TreeNode* n = TreeNodeFindChild(parent, path);
+    if (!n)
+    {
+        n = TreeNodeCreateImage(path);
+        TreeNodeAdd(parent, n);
+    }
 }
 
 static void ThreadLoadImages(void* ctx)
@@ -967,8 +928,12 @@ static void ThreadLoadImages(void* ctx)
             while ((*folder) == '/')
                 folder++;
 
-            TreeNode* foldernode = TreeNodeCreateFolder(folder);
-            TreeNodeAdd(root, foldernode);
+            TreeNode* foldernode = TreeNodeFindChild(root, folder);
+            if (!foldernode)
+            {
+                foldernode = TreeNodeCreateFolder(folder);
+                TreeNodeAdd(root, foldernode);
+            }
 
             ImageListContext file_list;
             file_list.root = full_path;

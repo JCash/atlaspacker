@@ -66,6 +66,16 @@ TreeNode* TreeNodeClone(TreeNode* node)
     return c;
 }
 
+TreeNode* TreeNodeFindChild(TreeNode* node, const char* path)
+{
+    for (TreeNode* child = node->child; child != 0; child = child->sibling)
+    {
+        if (strcmp(path, child->path) == 0)
+            return child;
+    }
+    return 0;
+}
+
 // Recursively clone a tree
 static void TreeNodeTreeCloneRecursive(TreeNode* new_parent, TreeNode* node)
 {
