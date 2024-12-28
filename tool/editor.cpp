@@ -271,6 +271,29 @@ static void OnSokolInit(void* user_data)
     CreateDefaultTexture(app_state);
 }
 
+static Image* GetImage(AppState* state, hash_t path_hash)
+{
+    Image** pimage = 0;
+    thread_mutex_unlock(&state->mutex);
+    pimage = state->images.Get(path_hash);
+    thread_mutex_unlock(&state->mutex);
+    return pimage ? *pimage : 0;
+}
+
+static void AddImage(AppState* state, Image* image)
+{
+    thread_mutex_unlock(&state->mutex);
+
+    if (state->images.Full())
+    {
+        uint32_t cap = state->images.Capacity() + 32;
+        state->images.SetCapacity(cap);
+    }
+    state->images.Put(image->path_hash, image);
+
+    thread_mutex_unlock(&state->mutex);
+}
+
 static void SetSelections(TreeNode* node, int select)
 {
     node->selected = select;
@@ -298,10 +321,12 @@ static void CheckSelectNode(TreeNode* root, TreeNode* node)
     }
 }
 
-static void DrawImageListTree(TreeNode* root, TreeNode* node)
+static void DrawImageListTree(AppState* state, TreeNode* root, TreeNode* node)
 {
     int is_folder = node->type == TN_TYPE_FOLDER;
     //Image* image = is_folder ? 0 : GetImage(state, node->path_hash);
+    Image* image = GetImage(state, node->path_hash);
+
     const char* name = node->path;
     if (!is_folder)
     {
@@ -324,7 +349,7 @@ static void DrawImageListTree(TreeNode* root, TreeNode* node)
             TreeNode* child = node->child;
             while (child)
             {
-                DrawImageListTree(root, child);
+                DrawImageListTree(state, root, child);
                 child = child->sibling;
             }
 
@@ -346,8 +371,10 @@ static void DrawImageListTree(TreeNode* root, TreeNode* node)
         }
 
         ImGui::TableNextColumn();
-        ImGui::TextDisabled("--");
-        //ImGui::Text("%d x %d x %d", image->width, image->width, image->channels);
+        if (image)
+            ImGui::TextDisabled("%d x %d x %d", image->width, image->width, image->channels);
+        else
+            ImGui::TextDisabled("--");
     }
 }
 
@@ -387,7 +414,7 @@ static void DrawImageList(AppState* state)
             TreeNode* node = state->images_root->child;
             while (node)
             {
-                DrawImageListTree(state->images_root, node);
+                DrawImageListTree(state, state->images_root, node);
                 node = node->sibling;
             }
 
@@ -819,29 +846,6 @@ static int ImageListIterator(void* _ctx, const char* path)
 
     ctx->AddPath(path);
     return 0;
-}
-
-static Image* GetImage(AppState* state, hash_t path_hash)
-{
-    Image** pimage = 0;
-    thread_mutex_unlock(&state->mutex);
-    pimage = state->images.Get(path_hash);
-    thread_mutex_unlock(&state->mutex);
-    return pimage ? *pimage : 0;
-}
-
-static void AddImage(AppState* state, Image* image)
-{
-    thread_mutex_unlock(&state->mutex);
-
-    if (state->images.Full())
-    {
-        uint32_t cap = state->images.Capacity() + 32;
-        state->images.SetCapacity(cap);
-    }
-    state->images.Put(image->path_hash, image);
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void LoadImageAndAddNode(AppState* state, TreeNode* parent, const char* path)
