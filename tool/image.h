@@ -9,14 +9,13 @@
 
 struct Image
 {
-    //struct Image*   next;
+    uint8_t*        data;       // The image data
+    void*           context;    // Custom context for the application
     int             width;
     int             height;
     int             channels;
-    uint8_t*        data;
     hash_t          path_hash;
     const char*     path;
-    const char*     source; // if null, it's from a single file reference
 };
 
 

@@ -141,12 +141,29 @@ static void DestroyTextures(AppState* state)
     state->page_textures.SetSize(0);
 }
 
+static void DestroyImages(AppState* state)
+{
+    for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
+    {
+        Image* image = *it.GetValue();
+        AppTexture* texture = (AppTexture*)image->context;
+        if (texture)
+        {
+            sg_destroy_image(texture->image);
+            delete texture;
+        }
+        DestroyImage(image);
+    }
+}
+
+
 static void Quit(AppState* state)
 {
     thread_mutex_lock(&state->mutex);
 
     printf("TODO: Check if the project is dirty!\n");
     DestroyTextures(state);
+    DestroyImages(state);
 
     if (state->project)
         apDestroyProject(state->project);
@@ -197,6 +214,19 @@ static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, 
     {
         free((void*)tmp);
     }
+}
+
+static AppTexture* MakeTextureFromImage(AppState* state, Image* image)
+{
+    AppTexture* texture = new AppTexture;
+    CreateTexture(state, texture, image->data, image->width, image->height, image->channels);
+
+    if (texture->texture_id == 0)
+    {
+        delete texture;
+        return 0;
+    }
+    return texture;
 }
 
 static void CreateDefaultTexture(AppState* state)
@@ -321,10 +351,39 @@ static void CheckSelectNode(TreeNode* root, TreeNode* node)
     }
 }
 
+static void ShowToolTipImage(AppState* state, TreeNode* node)
+{
+    Image* image = GetImage(state, node->path_hash);
+    if (!image)
+        return;
+
+    if (!ImGui::BeginTooltip())
+        return;
+
+    AppTexture* texture = (AppTexture*)image->context;
+    if (!texture)
+    {
+        texture = MakeTextureFromImage(state, image);
+        image->context = texture;
+    }
+
+    ImGui::Text("Path: %s", image->path);
+    ImGui::Text("Size: %u x %u x %u", image->width, image->height, image->channels);
+
+    if (texture && texture->texture_id)
+    {
+        ImVec2 uv0 = {0,0};
+        ImVec2 uv1 = {1,1};
+        ImVec2 size(image->width, image->height);
+        ImGui::Image(texture->texture_id, size, uv0, uv1);
+    }
+
+    ImGui::EndTooltip();
+}
+
 static void DrawImageListTree(AppState* state, TreeNode* root, TreeNode* node)
 {
     int is_folder = node->type == TN_TYPE_FOLDER;
-    //Image* image = is_folder ? 0 : GetImage(state, node->path_hash);
     Image* image = GetImage(state, node->path_hash);
 
     const char* name = node->path;
@@ -367,6 +426,11 @@ static void DrawImageListTree(AppState* state, TreeNode* root, TreeNode* node)
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered(ImGuiHoveredFlags_None))
             {
                 printf("TODO: Open image in sprite editor: %s\n", name);
+            }
+
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+            {
+                ShowToolTipImage(state, node);
             }
         }
 
@@ -848,6 +912,7 @@ static int ImageListIterator(void* _ctx, const char* path)
     return 0;
 }
 
+// Called from the worker thread
 static void LoadImageAndAddNode(AppState* state, TreeNode* parent, const char* path)
 {
     hash_t path_hash = Hash(path);

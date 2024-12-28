@@ -57,7 +57,6 @@ Image* LoadImage(const char* path)
 void DestroyImage(Image* image)
 {
     free((void*)image->path);
-    free((void*)image->source);
     free((void*)image->data);
     free((void*)image);
 }
