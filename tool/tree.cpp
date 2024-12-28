@@ -93,8 +93,10 @@ void TreeNodeTreeDestroy(TreeNode* node)
     TreeNode* child = node->child;
     TreeNodeDestroy(node);
 
-    for (; child != 0; child = child->sibling)
+    while (child)
     {
+        TreeNode* sibling = child->sibling;
         TreeNodeTreeDestroy(child);
+        child = sibling;
     }
 }
