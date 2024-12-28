@@ -5,8 +5,8 @@
 extern "C" {
     #include "worker.h"
 
+    #include <atlaspacker/file.h>
     #include <atlaspacker/exporter.h>
-
     #include <atlaspacker/project.h>
 
     #include <nfd.h>
@@ -125,17 +125,20 @@ static void ExportFile(AppState* state)
     thread_mutex_unlock(&state->mutex);
 }
 
+static void AllocTextures(AppState* state, int count)
+{
+    state->page_textures.SetCapacity(count);
+    state->page_textures.SetSize(count);
+}
 
 static void DestroyTextures(AppState* state)
 {
-    for (int i = 0; i < state->num_page_textures; ++i)
+    for (int i = 0; i < state->page_textures.Size(); ++i)
     {
         AppTexture* texture = &state->page_textures[i];
-        //simgui_destroy_image(texture->imgui_image);
         sg_destroy_image(texture->image);
     }
-
-    free((void*)state->page_textures);
+    state->page_textures.SetSize(0);
 }
 
 static void Quit(AppState* state)
@@ -147,16 +150,23 @@ static void Quit(AppState* state)
 
     if (state->project)
         apDestroyProject(state->project);
+    state->project = 0;
 
     thread_mutex_unlock(&state->mutex);
 }
 static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, int width, int height, int channels)
 {
+    if (width == 0 || height == 0 || channels == 0)
+    {
+        texture->texture_id = 0;
+        return;
+    }
+
     uint8_t* tmp = 0;
     if (channels == 3)
     {
         // TODO: Move to a apRGBToRGBA() helper function
-        tmp = (uint8_t*)malloc(width * height * channels);
+        tmp = (uint8_t*)malloc(width * height * 4);
         for (int y = 0; y < height; ++y)
         {
             for (int x = 0; x < width; ++x)
@@ -181,24 +191,12 @@ static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, 
     def_image_desc.label = "atlas-image";
 
     texture->image = sg_make_image(&def_image_desc);
-    // texture->imgui_image = simgui_make_image(&(simgui_image_desc_t){
-    //         .image = texture->image,
-    //         .sampler = { 0 }, // TODO: Create a NEAREST sampler
-    //     });
     texture->texture_id = simgui_imtextureid(texture->image);
 
     if (tmp)
     {
         free((void*)tmp);
     }
-}
-
-static void AllocTextures(AppState* state, int count)
-{
-    uint32_t size = sizeof(AppTexture) * count;
-    state->num_page_textures = count;
-    state->page_textures = (AppTexture*)malloc(size);
-    memset(state->page_textures, 0, size);
 }
 
 static void CreateDefaultTexture(AppState* state)
@@ -217,16 +215,16 @@ static void CreateDefaultTexture(AppState* state)
     DestroyTextures(state);
     AllocTextures(state, 1);
     CreateTexture(state, &state->page_textures[0], (uint8_t*)def_pixels, width, height, 4);
-    state->zoom = 1.0f / state->num_page_textures;
+    state->zoom = 1.0f / state->page_textures.Size();
 }
 
 static void CreateAtlasTextures(AppState* state)
 {
+    int old_num_pages = state->page_textures.Size();
+
     DestroyTextures(state);
     AllocTextures(state, state->num_pages);
 
-    int old_num_pages = state->num_page_textures;
-    state->num_page_textures = state->num_pages;
     for (int i = 0; i < state->num_pages; ++i)
     {
         Page* page = &state->pages[i];
@@ -269,8 +267,7 @@ static void OnSokolInit(void* user_data)
 
     // Create dummy texture for atlas pages
     app_state->zoom = 1.0f;
-    app_state->num_page_textures = 0;
-    app_state->page_textures = 0;
+
     CreateDefaultTexture(app_state);
 }
 
@@ -303,11 +300,9 @@ static void CheckSelectNode(TreeNode* root, TreeNode* node)
 
 static void DrawImageListTree(TreeNode* root, TreeNode* node)
 {
-    int is_folder = node->type == 0;
-    Image* image = is_folder ? 0 : (Image*)node->data;
-    const char* name = is_folder ?
-                            ((const char*)node->data) :
-                            image->path;
+    int is_folder = node->type == TN_TYPE_FOLDER;
+    //Image* image = is_folder ? 0 : GetImage(state, node->path_hash);
+    const char* name = node->path;
     if (!is_folder)
     {
         name = strrchr(name, '/');
@@ -384,15 +379,15 @@ static void DrawImageList(AppState* state)
             ImGui::TableNextColumn(); ImGui::Text("here!");
             ImGui::TableNextColumn(); ImGui::TextDisabled("--");
         }
-        else
+        else if (state->images_root)
         {
             // TODO: Add a trylock to the thread api
             thread_mutex_lock(&state->mutex);
 
-            TreeNode* node = state->images_root.child;
+            TreeNode* node = state->images_root->child;
             while (node)
             {
-                DrawImageListTree(&state->images_root, node);
+                DrawImageListTree(state->images_root, node);
                 node = node->sibling;
             }
 
@@ -471,17 +466,16 @@ static void ThreadRecreateAtlas(void* _ctx)
     project->context = apCreate(&project->options, packer);
     if (project->context)
     {
-        printf("Adding images\n");
+        printf("Adding images: %u\n", state->images.Size());
         tstart = GetTime();
 
         // TODO: Make sure we only create apImages for the unique images that we want to pack
-        // Any many-to-one mappings needs to happe before this point.
-        for (int i = 0; i < state->images.Size(); ++i)
+        // Any many-to-one mappings needs to happen before this point.
+        for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
         {
-            Image* image = state->images[i];
+            Image* image = *it.GetValue();
             apAddImage(project->context, image->path, image->width, image->height, image->channels, image->data);
         }
-
 
         tend = GetTime();
 
@@ -496,10 +490,8 @@ static void ThreadRecreateAtlas(void* _ctx)
         printf("Packing atlas images took %.2f ms\n", (tend-tstart)/1000.0f);
     }
 
-    //printf("Created packer contexts\n");
-
     state->num_pages = 0;
-    state->pages = apRenderPages(state->project->context, &state->num_pages, 0);
+    state->pages = apRenderPages(project->context, &state->num_pages, 0);
 
     state->creating_atlas = 0;
 
@@ -660,7 +652,7 @@ static void DrawAtlasPages(AppState* state)
 
     if (state->project->context)
     {
-        ImGui::Text("Atlas: %d pages, %d x %d", state->num_page_textures, state->page_size.width, state->page_size.height);
+        ImGui::Text("Atlas: %zu pages, %d x %d", state->page_textures.Size(), state->page_size.width, state->page_size.height);
     }
     else
     {
@@ -687,13 +679,16 @@ static void DrawAtlasPages(AppState* state)
     size.y *= state->zoom;
 
 
-    for (int i = 0; i < state->num_page_textures; ++i)
+    for (int i = 0; i < state->page_textures.Size(); ++i)
     {
         ImVec2 uv0 = {0,0};
         ImVec2 uv1 = {1,1};
         ImGui::SameLine(0, 0);
 
         ImVec2 start_pos = ImGui::GetCursorScreenPos();
+
+        if (state->page_textures[i].texture_id == 0)
+            continue;
 
         ImGui::Image(state->page_textures[i].texture_id, size, uv0, uv1);
 
@@ -765,7 +760,7 @@ static void DrawAtlasPages(AppState* state)
 
 static int IsImageSuffix(const char* suffix)
 {
-    return strcmp(suffix, ".png") == 0 || strcmp(suffix, ".PNG") == 0;
+    return suffix != 0 && (strcmp(suffix, ".png") == 0 || strcmp(suffix, ".PNG") == 0);
 }
 
 
@@ -774,91 +769,140 @@ typedef struct ImageLoaderContext
     TreeNode* root;
     TreeNode* parent; // Current node to attach to
     Image*    list;
-    const char* source_dir; // set if there is a source directory
 } ImageLoaderContext;
 
-static void AddTreeNodeInternal(TreeNode* parent, TreeNode* node)
+
+typedef int (*QsortFn)(const void*, const void*);
+static int ComparePaths(const char** _a, const char** _b)
 {
-    // find last child
-    if (!parent->child)
-        parent->child = node;
-    else
+    const char* a = *_a;
+    const char* b = *_b;
+    return strcmp(a, b);
+}
+
+struct ImageListContext
+{
+    const char*            root;
+    jc::Array<const char*> paths;
+
+    ~ImageListContext()
     {
-        TreeNode* last = parent->child;
-        while (last->sibling)
+        for (uint32_t i = 0; i < paths.Size(); ++i)
         {
-            last = last->sibling;
+            free((void*)paths[i]);
         }
-        last->sibling = node;
     }
-}
 
-static TreeNode* AddTreeNode(TreeNode* parent, Image* image)
+    void SortPaths()
+    {
+        qsort(paths.Begin(), (size_t)paths.Size(), sizeof(const char*), (QsortFn)ComparePaths);
+    }
+
+    void AddPath(const char* path)
+    {
+        // TODO: Make this relative path more robust
+        const char* relative = strstr(path, root);
+
+        if (paths.Full())
+            paths.SetCapacity(paths.Capacity()+32);
+        paths.Push(strdup(relative));
+    }
+};
+
+
+// static Image* ImageLoad(ImageLoaderContext* ctx, const char* path)
+// {
+//     const char* suffix = strrchr(path, '.');
+//     if (!IsImageSuffix(suffix))
+//         return 0;
+
+//     // The list becomes in reverse order, but we will sort it anyways
+//     Image* image = LoadImage(path);
+
+//     return image;
+// }
+
+static int ImageListIterator(void* _ctx, const char* path)
 {
-    assert(parent);
-
-    TreeNode* node = (TreeNode*)malloc(sizeof(TreeNode));
-    memset(node, 0, sizeof(*node));
-
-    node->type = 1; // 0: folder, 1; image
-    node->data = (void*)image;
-    node->readonly = parent->type == 0; // if parent is a folder, we cannot remove the item
-
-    AddTreeNodeInternal(parent, node);
-    return node;
-}
-
-static TreeNode* AddFolderTreeNode(TreeNode* parent, const char* name)
-{
-    assert(parent);
-
-    TreeNode* node = (TreeNode*)malloc(sizeof(TreeNode));
-    memset(node, 0, sizeof(*node));
-
-    node->type = 0; // 0: folder, 1; image
-    node->data = (void*)strdup(name);
-
-    AddTreeNodeInternal(parent, node);
-    return node;
-}
-
-static Image* ImageLoad(ImageLoaderContext* ctx, const char* path)
-{
-    const char* suffix = strrchr(path, '.');
-    if (!suffix)
-        return 0;
-
-    //printf("Path: %s %s %d\n", path, suffix?suffix:"", IsImageSuffix(suffix));
-
-    if (!IsImageSuffix(suffix))
-        return 0;
-
-    // The list becomes in reverse order, but we will sort it anyways
-    Image* image = LoadImage(path);
-
-    return image;
-}
-
-static int ImageLoadIterator(void* _ctx, const char* path)
-{
-    ImageLoaderContext* ctx = (ImageLoaderContext*)_ctx;
+    ImageListContext* ctx = (ImageListContext*)_ctx;
 
     const char* suffix = strrchr(path, '.');
-    if (!suffix)
-        return 0;
     if (!IsImageSuffix(suffix))
         return 0; // continue
 
-    Image* image = ImageLoad(ctx, path);
+    ctx->AddPath(path);
+    return 0;
+}
 
-    // Add it to the list
-    image->next = ctx->list->next;
-    ctx->list->next = image;
+// static int ImageLoadIterator(void* _ctx, const char* path)
+// {
+//     ImageLoaderContext* ctx = (ImageLoaderContext*)_ctx;
+
+//     const char* suffix = strrchr(path, '.');
+//     if (!IsImageSuffix(suffix))
+//         return 0; // continue
+
+//     Image* image = ImageLoad(ctx, path);
+
+//     // Add it to the list
+//     image->next = ctx->list->next;
+//     ctx->list->next = image;
+
+//     // Hook it into the tree
+//     AddTreeNode(ctx->parent, image);
+
+//     return image ? 0 : 1; // The iterator wants 1 to quit, 0 to continue
+// }
+
+// static bool IsImageLoaded(AppState* state, const char* path)
+// {
+//     hash_t path_hash = Hash(path);
+//     thread_mutex_unlock(&state->mutex);
+//         Image** pimage = state->images.Get(path_hash);
+//         bool result = pimage != 0;
+//     thread_mutex_unlock(&state->mutex);
+//     return result;
+// }
+
+static Image* GetImage(AppState* state, hash_t path_hash)
+{
+    Image** pimage = 0;
+    thread_mutex_unlock(&state->mutex);
+    pimage = state->images.Get(path_hash);
+    thread_mutex_unlock(&state->mutex);
+    return pimage ? *pimage : 0;
+}
+
+static void AddImage(AppState* state, Image* image)
+{
+    thread_mutex_unlock(&state->mutex);
+
+    if (state->images.Full())
+    {
+        uint32_t cap = state->images.Capacity() + 32;
+        state->images.SetCapacity(cap);
+    }
+    state->images.Put(image->path_hash, image);
+
+    thread_mutex_unlock(&state->mutex);
+}
+
+static void LoadImageAndAddNode(AppState* state, TreeNode* parent, const char* path)
+{
+    hash_t path_hash = Hash(path);
+
+    Image* image = GetImage(state, path_hash);
+    if (!image)
+    {
+        Image* image = LoadImage(path);
+        AddImage(state, image);
+        image->path_hash = path_hash;
+    }
+    // increment ref count
 
     // Hook it into the tree
-    AddTreeNode(ctx->parent, image);
-
-    return image ? 0 : 1; // The iterator wants 1 to quit, 0 to continue
+    TreeNode* n = TreeNodeCreateImage(path);
+    TreeNodeAdd(parent, n);
 }
 
 static void ThreadLoadImages(void* ctx)
@@ -867,33 +911,22 @@ static void ThreadLoadImages(void* ctx)
 
     uint64_t tstart = GetTime();
 
-    apProject*      project = 0;
-    int             num_sources = 0;
-    const char**    sources = 0;
+    jc::Array<const char*> sources;
 
     thread_mutex_lock(&state->mutex);
-        state->loading_images = 1;
-        project = state->project;
-        num_sources = project->num_sources;
-        sources = project->sources;
 
-    /////////////////////////////////////////////////////////////////////
-    // TODO: Don't reload all images. Instead check if they're already loaded, or if they're not referenced anymore
-    for (int i = 0; i < state->images.Size(); ++i)
+    state->loading_images = 1;
+
+    apProject* project = state->project;
+    sources.SetCapacity(project->num_sources);
+    for (uint32_t i = 0; i < project->num_sources; ++i)
     {
-        DestroyImage(state->images[i]);
+        sources.Push(strdup(project->sources[i]));
     }
-    /////////////////////////////////////////////////////////////////////
 
-    // Build a tree from this list of images
-    ImageLoaderContext loader_context;
-    memset(&loader_context, 0, sizeof(ImageLoaderContext));
-    loader_context.root = &state->images_root;
+    TreeNode* root = state->images_root ? TreeNodeTreeClone(state->images_root) : TreeNodeCreateFolder("images");
 
-    Image image_list = { .next = 0 };
-    loader_context.list = &image_list;
-
-    loader_context.root = &state->images_root;
+    thread_mutex_unlock(&state->mutex);
 
     char project_dir[2048];
     if (state->path)
@@ -908,12 +941,9 @@ static void ThreadLoadImages(void* ctx)
         getcwd(project_dir, sizeof(project_dir));
     }
 
-    //printf("Project directory: '%s'\n", project_dir);
-
-    for (int i = 0; i < num_sources; ++i)
+    for (int i = 0; i < sources.Size(); ++i)
     {
         const char* path = sources[i];
-
 
         char full_path[2048];
         if (path[0] == '.' && path[1] == '/') // relative path
@@ -927,19 +957,9 @@ static void ThreadLoadImages(void* ctx)
             strncpy(full_path, path, sizeof(full_path));
         }
 
-    //printf("MAWE Loading images from %d: %s %s  is dir: %d  is file: %d\n", i, path, full_path, IsDir(full_path), IsFile(full_path));
         if (IsFile(full_path))
         {
-            image_list.source = 0;
-            loader_context.parent = loader_context.root;
-            Image* image = ImageLoad(&loader_context, full_path);
-
-            // Add it to the list
-            image->next = loader_context.list->next;
-            loader_context.list->next = image;
-
-            // Hook it into the tree
-            AddTreeNode(loader_context.parent, image);
+            LoadImageAndAddNode(state, root, path);
         }
         else if (IsDir(full_path))
         {
@@ -947,47 +967,46 @@ static void ThreadLoadImages(void* ctx)
             while ((*folder) == '/')
                 folder++;
 
-            image_list.source = full_path;
-            loader_context.parent = AddFolderTreeNode(loader_context.root, folder);
-            IterateFiles(full_path, true, ImageLoadIterator, &loader_context);
+            TreeNode* foldernode = TreeNodeCreateFolder(folder);
+            TreeNodeAdd(root, foldernode);
+
+            ImageListContext file_list;
+            file_list.root = full_path;
+            IterateFiles(full_path, true, ImageListIterator, &file_list);
+            file_list.SortPaths();
+
+            for (uint32_t j = 0; j < file_list.paths.Size(); ++j)
+            {
+                const char* relative = file_list.paths[j];
+                LoadImageAndAddNode(state, foldernode, relative);
+            }
         }
     }
 
-    int count = 0;
-    Image* first = image_list.next;
-    while (first)
-    {
-        ++count;
-        first = first->next;
-    }
-
-    state->images.SetCapacity(count);
-    state->images.SetSize(0);
+    thread_mutex_lock(&state->mutex);
 
     state->max_image_size = 0;
-    first = image_list.next;
-    while (first)
+    for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
     {
-        state->images.Push(first);
-
-        if (first->width > state->max_image_size)
-            state->max_image_size = first->width;
-        if (first->height > state->max_image_size)
-            state->max_image_size = first->height;
-
-        first = first->next;
+        Image* image = *it.GetValue();
+        if (image->width > state->max_image_size)
+            state->max_image_size = image->width;
+        if (image->height > state->max_image_size)
+            state->max_image_size = image->height;
     }
 
-    SortImages(state->images.Begin(), state->images.Size());
-
     state->loading_images = 0;
+
+    if (state->images_root)
+        TreeNodeTreeDestroy(state->images_root);
+    state->images_root = root;
 
     RecreateAtlas(state);
 
     thread_mutex_unlock(&state->mutex);
 
     uint64_t tend = GetTime();
-    printf("ThreadLoadImages: Loaded %zu images in %.3f s!\n", state->images.Size(), (tend - tstart) / 1000000.0f);
+    printf("ThreadLoadImages: Loaded %u images in %.3f s!\n", state->images.Size(), (tend - tstart) / 1000000.0f);
 }
 
 static void OnSokolFrame(void* user_data)
@@ -999,8 +1018,6 @@ static void OnSokolFrame(void* user_data)
     do_files_load = app_state->dirty_fileset;
     app_state->dirty_fileset = 0;
 
-    if (app_state->pages)
-        CreateAtlasTextures(app_state);
     thread_mutex_unlock(&app_state->mutex);
 
     if (do_files_load)
@@ -1070,7 +1087,7 @@ static void OnSokolFrame(void* user_data)
                 // macOS: Since the file dialog mustn't be opened in the
                 // scope of a sokol frame, we need to delay it.
                 // And since the ImGui::Button() reacts on mouse UP, and the Sokol
-                // on_event callback happends before this, we need to start the process on
+                // on_event callback happens before this, we need to start the process on
                 // a left click
                 OpenFileDialog(app_state);
             }
@@ -1123,6 +1140,9 @@ static void OnSokolFrame(void* user_data)
         {
             if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
             {
+                if (app_state->pages)
+                    CreateAtlasTextures(app_state);
+
                 DrawAtlasPages(app_state);
                 ImGui::EndTabItem();
             }
@@ -1279,7 +1299,8 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
                     thread_mutex_lock(&state->mutex);
                         state->dirty_fileset = 1;
 
-                        apDestroyProject(state->project);
+                        if (state->project)
+                            apDestroyProject(state->project);
                         state->project = project;
                         state->path    = strdup(outpath);
 
@@ -1321,6 +1342,7 @@ int main(int argc, char* argv[])
         {
             fprintf(stderr, "Failed to read prooject from %s\n", app_state.path);
             app_state.project   = apLoadProjectFromMemory("untitled", 0);
+            app_state.dirty_fileset = 0;
         }
     }
     else

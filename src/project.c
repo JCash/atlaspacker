@@ -1,5 +1,5 @@
 #include <atlaspacker/project.h>
-#include <atlaspacker/util.h>
+#include <atlaspacker/file.h>
 #include <cJSON.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -141,6 +141,7 @@ apProject* apLoadProjectFromMemory(const char* path, void* data)
 
     apSetDefaultOptions(&p->options);
     apTilePackerSetDefaultOptions(&p->options_tp);
+    apBinPackerSetDefaultOptions(&p->options_bp);
 
     p->packer_type = PT_TILEPACKER;
 

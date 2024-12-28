@@ -12,7 +12,14 @@ extern "C" {
 #include <sokol_gfx.h>
 #include <sokol_app.h>
 
+// External
 #include <array.h>
+#include <hashtable.h>
+
+// Editor
+#include "tree.h"
+#include "image.h"
+#include "hash.h"
 
 struct AppTexture {
     sg_image        image;
@@ -46,19 +53,21 @@ struct AppState
     worker*        thread;
 
     float           zoom;
-    int             num_page_textures;
-    AppTexture*     page_textures;
-    apSize          page_size;
+
+    jc::Array<AppTexture> page_textures;
+    apSize                page_size;
 
     // If set, then the textures need to be recreated
     // OpenGL requires you to do this on the context thread (unless you create an aux context)
     Page*           pages;
     int             num_pages;
 
-    jc::Array<Image*> images; // the raw images
-    int               max_image_size; // What is the largest image size in the set?
+    int             max_image_size; // What is the largest image size in the set?
 
-	TreeNode    images_root; // The tree of images
+
+    jc::HashTable<hash_t, Image*> images; // the raw images
+
+	TreeNode*   images_root; // The tree of images
 
     // Debug draw options
     bool        debug_draw_triangles;

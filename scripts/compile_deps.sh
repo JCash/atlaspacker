@@ -67,3 +67,14 @@ PREFIX=lib_lua_
 CFLAGS="${CFLAGS} -DMAKE_LIB -Wno-unused-function -Wno-implicit-int-conversion -Wno-shorten-64-to-32"
 compile_c_file external/repos/lua/onelua.c ${PREFIX}
 compile_lib lua51 ${PREFIX}
+
+
+echo "************************************************"
+echo "  xxHash"
+echo "************************************************"
+
+PREFIX=lib_xxh_
+CFLAGS="${CFLAGS} -DMAKE_LIB -Wno-unused-function -Wno-implicit-int-conversion -Wno-shorten-64-to-32"
+XXHASH_DIR=./external/repos/xxHash
+(cd ${XXHASH_DIR} && make clean && CFLAGS="-DXXH_NO_STDLIB" make -j8)
+cp -v ${XXHASH_DIR}/libxxhash.a ${BUILD_DIR}

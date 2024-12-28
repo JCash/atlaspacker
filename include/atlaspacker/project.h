@@ -13,37 +13,12 @@ typedef enum PackerType
     PT_BINPACKER,
 } PackerType;
 
-// typedef struct
-// {
-//     const char* path;
-//     float       pivot_x;
-//     float       pivot_y;
-//     int         no_rotate:1; // 0: rotation allowed !=0: no rotation allowed
-//     int         has_pivot:1; // 1: the pivot_x/pivot_y are valid
-// } ImageInfo;
-
 typedef struct
 {
     const char**        sources; // list of files or directories
     int                 num_sources;
 
-    // ImageInfo*      resolved_paths;
-    // int             num_resolved_paths;
-
-    // // Generic packer options
-    // PackerType      packer_type;
-    // int             po_page_size;   // The max size of each page
-
-    // // packer option: tile packer (po_tp_)
-    // int             po_tp_tile_size;    // Powers of two
-    // int             po_tp_alpha;        // 0-255
-    // int             po_tp_padding;      // Padding around each image
-    // int             po_tp_no_rotate;    // Allows for rotating the image or not
-
-    // // Output settings
-    // const char*     output_path;
-
-    // Exporter settings
+    // Packer settings
 
     apOptions           options; // Generic options
     apTilePackerOptions options_tp;
@@ -56,10 +31,6 @@ typedef struct
     // The images are unaffected by the packer settings
     apImage*            images;
     int                 num_images;
-
-    // // Any tile images are created for use with the tile packer
-    // apTileImage*        tile_images;
-    // int                 num_tile_images;
 
 } apProject;
 

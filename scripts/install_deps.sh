@@ -21,5 +21,10 @@ fi
 
 if [ ! -d ./external/repos/imgui ]; then
     echo "Cloning Dear ImGui"
-    (cd ./external/repos && git clone --recursive git@github.com:ocornut/imgui.git)
+    (cd ./external/repos && git clone --recursive git@github.com:ocornut/imgui.git && git checkout docking)
+fi
+
+if [ ! -d ./external/repos/xxHash ]; then
+    echo "Cloning xxHash"
+    (cd ./external/repos && git clone --recursive git@github.com:Cyan4973/xxHash.git)
 fi
