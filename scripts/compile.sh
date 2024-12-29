@@ -11,10 +11,25 @@ fi
 #DISASSEMBLY="-S -masm=intel"
 #PREPROCESS="-E"
 
+if [ "$USE_ASAN" != "" ] || [ "$USE_TSAN" != "" ]; then
+    if [ "$CXX" != "g++" ]; then
+        ASAN="-fsanitize=undefined -fno-omit-frame-pointer -fsanitize=undefined"
+        ASAN_LDFLAGS="-fsanitize=undefined"
+    fi
+fi
+
 if [ "$USE_ASAN" != "" ]; then
     if [ "$CXX" != "g++" ]; then
-        ASAN="-fsanitize=address -fno-omit-frame-pointer -fsanitize-address-use-after-scope -fsanitize=undefined"
-        ASAN_LDFLAGS="-fsanitize=address  -fsanitize=undefined"
+        ASAN="${ASAN} -fsanitize=address -fsanitize-address-use-after-scope"
+        ASAN_LDFLAGS="${ASAN_LDFLAGS} -fsanitize=address"
+    fi
+    echo Using ASAN
+fi
+
+if [ "$USE_TSAN" != "" ]; then
+    if [ "$CXX" != "g++" ]; then
+        ASAN="${ASAN} -fsanitize=thread"
+        ASAN_LDFLAGS="${ASAN_LDFLAGS} -fsanitize=thread"
     fi
     echo Using ASAN
 fi
@@ -69,7 +84,7 @@ fi
 echo Using ARCH=${ARCH}
 
 CFLAGS="$CFLAGS -g -std=$STDCVERSION -Wall $ASAN $PREPROCESS"
-CXXFLAGS="$CXXFLAGS -g -std=$STDCXXVERSION -Wall -fno-exceptions -Wno-old-style-cast -Wno-double-promotion -Iinclude -Isrc -I. -Iexternal -Itest $ASAN $PREPROCESS"
+CXXFLAGS="$CXXFLAGS -g -std=$STDCXXVERSION -Wall -fno-exceptions -Wno-old-style-cast -Wno-double-promotion -Iinclude -Isrc -I. -Itest $ASAN $PREPROCESS"
 LDFLAGS="$ASAN_LDFLAGS -g -L${BUILD_DIR}"
 
 if [ "$CXX" == "clang++" ]; then

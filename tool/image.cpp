@@ -9,7 +9,7 @@
 #include <string.h> // memset
 
 extern "C" {
-    #include <stb_wrappers.h>
+    #include <external/stb_wrappers.h>
 }
 
 static Image* AllocImage()

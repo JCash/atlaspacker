@@ -1,18 +1,15 @@
 #include <stdint.h>
 
 #include "state.h"
+#include "thread.h"
+#include "worker.h"
 
 extern "C" {
-    #include "worker.h"
-
     #include <atlaspacker/file.h>
     #include <atlaspacker/exporter.h>
     #include <atlaspacker/project.h>
 
     #include <nfd.h>
-
-    #define THREAD_IMPLEMENTATION
-    #include <thread.h>
 }
 
 #include <imgui.h>
@@ -67,7 +64,7 @@ static void OnFileDialogAddImages(AppState* state, const char** paths, int numpa
 // TODO: Move this to AppState
 static struct {
     sg_pass_action pass_action;
-} state;
+} SokolActionState;
 
 static const char* GetWindowTitle(const char* path, bool dirty, char* buffer, uint32_t buffer_size)
 {
@@ -85,14 +82,13 @@ static void UpdateWindowTitle(AppState* state, bool dirty)
 
 static void OpenFileDialog(AppState* state)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
     state->open_project_dialog = true;
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void SaveFile(AppState* state)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
     if (state->path == 0)
     {
         state->save_project_dialog = true;
@@ -101,13 +97,11 @@ static void SaveFile(AppState* state)
         apSaveProject(state->path, state->project);
         UpdateWindowTitle(state, false);
     }
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void ExportFile(AppState* state)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
 
     if (!state->project)
     {
@@ -121,8 +115,6 @@ static void ExportFile(AppState* state)
         const char* output_path = "/Users/mathiaswesterdahl/work/projects/users/mawe/extension-texturepacker/examples/ap/spineboy/ap_spineboy.tpinfo";
         apExportProject(state->project, exporter_path, output_path);
     }
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void AllocTextures(AppState* state, int count)
@@ -159,7 +151,7 @@ static void DestroyImages(AppState* state)
 
 static void Quit(AppState* state)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
 
     printf("TODO: Check if the project is dirty!\n");
     DestroyTextures(state);
@@ -168,8 +160,6 @@ static void Quit(AppState* state)
     if (state->project)
         apDestroyProject(state->project);
     state->project = 0;
-
-    thread_mutex_unlock(&state->mutex);
 }
 static void CreateTexture(AppState* state, AppTexture* texture, uint8_t* image, int width, int height, int channels)
 {
@@ -277,7 +267,7 @@ static void CreateAtlasTextures(AppState* state)
 
 static void OnSokolInit(void* user_data)
 {
-    AppState* app_state = (AppState*)user_data;
+    AppState* state = (AppState*)user_data;
 
     sg_desc desc = {
         .environment = sglue_environment(),
@@ -291,28 +281,26 @@ static void OnSokolInit(void* user_data)
     ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // initial clear color
-    state.pass_action = (sg_pass_action) {
+    SokolActionState.pass_action = (sg_pass_action) {
         .colors[0] = { .load_action = SG_LOADACTION_CLEAR, .clear_value = { 0.0f, 0.5f, 1.0f, 1.0 } }
     };
 
     // Create dummy texture for atlas pages
-    app_state->zoom = 1.0f;
+    state->zoom = 1.0f;
 
-    CreateDefaultTexture(app_state);
+    CreateDefaultTexture(state);
 }
 
 static Image* GetImage(AppState* state, hash_t path_hash)
 {
-    Image** pimage = 0;
-    thread_mutex_unlock(&state->mutex);
-    pimage = state->images.Get(path_hash);
-    thread_mutex_unlock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
+    Image** pimage = state->images.Get(path_hash);
     return pimage ? *pimage : 0;
 }
 
 static void AddImage(AppState* state, Image* image)
 {
-    thread_mutex_unlock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
 
     if (state->images.Full())
     {
@@ -320,8 +308,6 @@ static void AddImage(AppState* state, Image* image)
         state->images.SetCapacity(cap);
     }
     state->images.Put(image->path_hash, image);
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void SetSelections(TreeNode* node, int select)
@@ -473,7 +459,7 @@ static void DrawImageList(AppState* state)
         else if (state->images_root)
         {
             // TODO: Add a trylock to the thread api
-            thread_mutex_lock(&state->mutex);
+            SCOPED_MUTEX(state->mutex);
 
             TreeNode* node = state->images_root->child;
             while (node)
@@ -481,8 +467,6 @@ static void DrawImageList(AppState* state)
                 DrawImageListTree(state, state->images_root, node);
                 node = node->sibling;
             }
-
-            thread_mutex_unlock(&state->mutex);
         }
 
         ImGui::EndTable();
@@ -491,9 +475,15 @@ static void DrawImageList(AppState* state)
     ImGui::Separator();
     ImGui::Indent(16);
 
-    ImGui::BeginDisabled(state->open_file_dialog != 0 ||
-                        state->open_folder_dialog != 0 ||
-                        state->loading_images);
+    bool disabled = false;
+    {
+        SCOPED_MUTEX(state->mutex);
+        disabled = state->open_file_dialog != 0 ||
+                   state->open_folder_dialog != 0 ||
+                   state->loading_images; // thread
+    }
+
+    ImGui::BeginDisabled(disabled);
 
         if (ImGui::Button("Add Image(s)"))
         {
@@ -535,7 +525,7 @@ static void ThreadRecreateAtlas(void* _ctx)
     uint64_t tend;
     uint64_t tstart;
 
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
     state->creating_atlas = 1;
 
     apProject* project = state->project;
@@ -585,13 +575,11 @@ static void ThreadRecreateAtlas(void* _ctx)
     state->pages = apRenderPages(project->context, &state->num_pages, 0);
 
     state->creating_atlas = 0;
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 static void RecreateAtlas(AppState* state)
 {
-    worker_push_job(state->thread, ThreadRecreateAtlas, (void*)state);
+    WorkerPushJob(state->thread, ThreadRecreateAtlas, (void*)state);
 }
 
 static void DrawPackerOptions(AppState* state)
@@ -739,22 +727,16 @@ static void DrawPackerOptions(AppState* state)
 
 static void DrawAtlasPages(AppState* state)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
 
-    if (state->project->context)
-    {
-        ImGui::Text("Atlas: %zu pages, %d x %d", state->page_textures.Size(), state->page_size.width, state->page_size.height);
-    }
-    else
-    {
-        ImGui::Text("");
-    }
+    if (!state->project || !state->project->context)
+        return;
+
+    ImGui::Text("Atlas: %zu pages, %d x %d", state->page_textures.Size(), state->page_size.width, state->page_size.height);
 
     ImGui::BeginChild("#atlas_texture");
 
     ImVec2 size = ImGui::GetWindowSize();
-
-    //static float zoom = 1.0f;
 
     if (ImGui::IsKeyDown(ImGuiKey_MouseWheelY) && ImGui::IsKeyDown(ImGuiMod_Ctrl))
     {
@@ -769,7 +751,6 @@ static void DrawAtlasPages(AppState* state)
     size.x *= state->zoom;
     size.y *= state->zoom;
 
-
     for (int i = 0; i < state->page_textures.Size(); ++i)
     {
         ImVec2 uv0 = {0,0};
@@ -783,7 +764,13 @@ static void DrawAtlasPages(AppState* state)
 
         ImGui::Image(state->page_textures[i].texture_id, size, uv0, uv1);
 
-        if (state->debug_draw_triangles)
+        bool do_draw = state->debug_draw_triangles;
+        if (!do_draw)
+        {
+
+        }
+
+        if (do_draw)
         {
             ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
@@ -844,8 +831,6 @@ static void DrawAtlasPages(AppState* state)
     }
 
     ImGui::EndChild();
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 
@@ -942,21 +927,22 @@ static void ThreadLoadImages(void* ctx)
     uint64_t tstart = GetTime();
 
     jc::Array<const char*> sources;
+    TreeNode* root = 0;
 
-    thread_mutex_lock(&state->mutex);
-
-    state->loading_images = 1;
-
-    apProject* project = state->project;
-    sources.SetCapacity(project->num_sources);
-    for (uint32_t i = 0; i < project->num_sources; ++i)
     {
-        sources.Push(strdup(project->sources[i]));
+        SCOPED_MUTEX(state->mutex);
+
+        state->loading_images = 1;
+
+        apProject* project = state->project;
+        sources.SetCapacity(project->num_sources);
+        for (uint32_t i = 0; i < project->num_sources; ++i)
+        {
+            sources.Push(strdup(project->sources[i]));
+        }
+
+        root = state->images_root ? TreeNodeTreeClone(state->images_root) : TreeNodeCreateFolder("images");
     }
-
-    TreeNode* root = state->images_root ? TreeNodeTreeClone(state->images_root) : TreeNodeCreateFolder("images");
-
-    thread_mutex_unlock(&state->mutex);
 
     char project_dir[2048];
     if (state->path)
@@ -1017,27 +1003,27 @@ static void ThreadLoadImages(void* ctx)
         }
     }
 
-    thread_mutex_lock(&state->mutex);
-
-    state->max_image_size = 0;
-    for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
     {
-        Image* image = *it.GetValue();
-        if (image->width > state->max_image_size)
-            state->max_image_size = image->width;
-        if (image->height > state->max_image_size)
-            state->max_image_size = image->height;
+        SCOPED_MUTEX(state->mutex);
+
+        state->max_image_size = 0;
+        for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
+        {
+            Image* image = *it.GetValue();
+            if (image->width > state->max_image_size)
+                state->max_image_size = image->width;
+            if (image->height > state->max_image_size)
+                state->max_image_size = image->height;
+        }
+
+        state->loading_images = 0;
+
+        if (state->images_root)
+            TreeNodeTreeDestroy(state->images_root);
+        state->images_root = root;
+
+        RecreateAtlas(state);
     }
-
-    state->loading_images = 0;
-
-    if (state->images_root)
-        TreeNodeTreeDestroy(state->images_root);
-    state->images_root = root;
-
-    RecreateAtlas(state);
-
-    thread_mutex_unlock(&state->mutex);
 
     uint64_t tend = GetTime();
     printf("ThreadLoadImages: Loaded %u images in %.3f s!\n", state->images.Size(), (tend - tstart) / 1000000.0f);
@@ -1045,18 +1031,18 @@ static void ThreadLoadImages(void* ctx)
 
 static void OnSokolFrame(void* user_data)
 {
-    AppState* app_state = (AppState*)user_data;
+    AppState* state = (AppState*)user_data;
 
     int do_files_load = 0;
-    thread_mutex_lock(&app_state->mutex);
-    do_files_load = app_state->dirty_fileset;
-    app_state->dirty_fileset = 0;
-
-    thread_mutex_unlock(&app_state->mutex);
+    {
+        SCOPED_MUTEX(state->mutex);
+        do_files_load = state->dirty_fileset;
+        state->dirty_fileset = 0;
+    }
 
     if (do_files_load)
     {
-        worker_push_job(app_state->thread, ThreadLoadImages, (void*)app_state);
+        WorkerPushJob(state->thread, ThreadLoadImages, (void*)state);
     }
 
     int width = sapp_width();
@@ -1123,12 +1109,12 @@ static void OnSokolFrame(void* user_data)
                 // And since the ImGui::Button() reacts on mouse UP, and the Sokol
                 // on_event callback happens before this, we need to start the process on
                 // a left click
-                OpenFileDialog(app_state);
+                OpenFileDialog(state);
             }
 
             if (ImGui::MenuItem("Save", "CTRL+S"))
             {
-                SaveFile(app_state);
+                SaveFile(state);
             }
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
@@ -1137,7 +1123,7 @@ static void OnSokolFrame(void* user_data)
                 // And since the ImGui::Button() reacts on mouse UP, and the Sokol
                 // on_event callback happends before this, we need to start the process on
                 // a left click
-                app_state->save_project_dialog = true;
+                state->save_project_dialog = true;
             }
 
             ImGui::EndMenu();
@@ -1149,13 +1135,13 @@ static void OnSokolFrame(void* user_data)
     {
         if (ImGui::BeginTabItem("Images", 0, ImGuiTabItemFlags_None))
         {
-            DrawImageList(app_state);
+            DrawImageList(state);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Packer", 0, ImGuiTabItemFlags_None))
         {
-            DrawPackerOptions(app_state);
+            DrawPackerOptions(state);
             ImGui::EndTabItem();
         }
 
@@ -1174,10 +1160,10 @@ static void OnSokolFrame(void* user_data)
         {
             if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
             {
-                if (app_state->pages)
-                    CreateAtlasTextures(app_state);
+                if (state->pages)
+                    CreateAtlasTextures(state);
 
-                DrawAtlasPages(app_state);
+                DrawAtlasPages(state);
                 ImGui::EndTabItem();
             }
 
@@ -1188,7 +1174,7 @@ static void OnSokolFrame(void* user_data)
     ImGui::ShowDemoWindow();
 
     /*=== UI CODE ENDS HERE ===*/
-    sg_pass pass = { .action = state.pass_action, .swapchain = sglue_swapchain() };
+    sg_pass pass = { .action = SokolActionState.pass_action, .swapchain = sglue_swapchain() };
     sg_begin_pass(&pass);
     simgui_render();
     sg_end_pass();
@@ -1202,7 +1188,7 @@ static void OnSokolCleanup(void* user_data) {
 
 static void ProjectAddSource(AppState* state, const char** paths, uint32_t num_paths)
 {
-    thread_mutex_lock(&state->mutex);
+    SCOPED_MUTEX(state->mutex);
 
     apProject* p = state->project;
     if (p)
@@ -1211,8 +1197,6 @@ static void ProjectAddSource(AppState* state, const char** paths, uint32_t num_p
 
         state->dirty_fileset = 1;
     }
-
-    thread_mutex_unlock(&state->mutex);
 }
 
 // ********************************************************************************************
@@ -1330,15 +1314,13 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
                 {
                     apDebugPrintProject(project);
 
-                    thread_mutex_lock(&state->mutex);
-                        state->dirty_fileset = 1;
+                    SCOPED_MUTEX(state->mutex);
+                    state->dirty_fileset = 1;
 
-                        if (state->project)
-                            apDestroyProject(state->project);
-                        state->project = project;
-                        state->path    = strdup(outpath);
-
-                    thread_mutex_unlock(&state->mutex);
+                    if (state->project)
+                        apDestroyProject(state->project);
+                    state->project = project;
+                    state->path    = strdup(outpath);
                 }
                 else
                 {
@@ -1360,38 +1342,39 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
 
 int main(int argc, char* argv[])
 {
-    AppState app_state;
-    memset(&app_state, 0, sizeof(app_state));
+    AppState state;
+    memset(&state, 0, sizeof(state));
 
-    thread_mutex_init(&app_state.mutex);
-    app_state.thread = worker_start(app_state.mutex);
+    state.mutex = MutexCreate();
+
+    state.thread = WorkerStart(state.mutex);
 
     if (argc > 1)
     {
-        app_state.path = argv[argc-1];
-        app_state.project = apLoadProjectFromPath(app_state.path);
-        app_state.dirty_fileset = 1;
+        state.path = argv[argc-1];
+        state.project = apLoadProjectFromPath(state.path);
+        state.dirty_fileset = 1;
 
-        if (!app_state.project)
+        if (!state.project)
         {
-            fprintf(stderr, "Failed to read prooject from %s\n", app_state.path);
-            app_state.project   = apLoadProjectFromMemory("untitled", 0);
-            app_state.dirty_fileset = 0;
+            fprintf(stderr, "Failed to read prooject from %s\n", state.path);
+            state.project   = apLoadProjectFromMemory("untitled", 0);
+            state.dirty_fileset = 0;
         }
     }
     else
     {
-        app_state.path      = 0;
-        app_state.project   = apLoadProjectFromMemory("untitled", 0);
+        state.path      = 0;
+        state.project   = apLoadProjectFromMemory("untitled", 0);
     }
 
     char title[1024];
-    GetWindowTitle(app_state.path, false, title, sizeof(title));
+    GetWindowTitle(state.path, false, title, sizeof(title));
 
     sapp_desc desc = {
         .width = 1280,
         .height = 1024,
-        .user_data = (void*)&app_state,
+        .user_data = (void*)&state,
         .init_userdata_cb = OnSokolInit,
         .frame_userdata_cb = OnSokolFrame,
         .cleanup_userdata_cb = OnSokolCleanup,
@@ -1405,15 +1388,15 @@ int main(int argc, char* argv[])
 
     sapp_run(&desc);
 
-    if (app_state.thread)
+    if (state.thread)
     {
-        thread_join(app_state.thread);
-        thread_destroy(app_state.thread);
+        thread_join(state.thread);
+        thread_destroy(state.thread);
     }
 
-    worker_stop(app_state.thread);
+    WorkerStop(state.thread);
 
-    thread_mutex_term(&app_state.mutex);
+    MutexDestroy(state.mutex);
 
     return 0;
 }

@@ -1,40 +1,45 @@
+// https://github.com/JCash/atlaspacker
+// License: MIT
+// @2021-@2024 Mathias Westerdahl
+
 #include "worker.h"
 #include <stdlib.h>
 #include <stdio.h>
 
-typedef struct worker_job
+#include <external/thread.h>
+
+struct WorkerJob
 {
-    struct worker_job*  next;
+    struct WorkerJob*  next;
     void                (*fn)(void* ctx);
     void*               ctx;
-} worker_job;
+};
 
-typedef struct worker
+struct Worker
 {
     thread_ptr_t    thread;
-    thread_mutex_t  mutex;
-    worker_job*     jobs;
+    HMutex          mutex;
+    WorkerJob*     jobs;
     int             run;
-} worker;
+};
 
 static int WorkerThread(void* ctx)
 {
-    worker* w = (worker*)ctx;
+    Worker* w = (Worker*)ctx;
 
     thread_timer_t timer;
     thread_timer_init( &timer );
     while (w->run)
     {
-        worker_job* job = 0;
-        thread_mutex_lock(&w->mutex);
-
-        job = w->jobs;
-        if (job)
+        WorkerJob* job = 0;
         {
-            w->jobs = w->jobs->next;
+            SCOPED_MUTEX(w->mutex);
+            job = w->jobs;
+            if (job)
+            {
+                w->jobs = w->jobs->next;
+            }
         }
-
-        thread_mutex_unlock(&w->mutex);
 
         if (job)
         {
@@ -49,34 +54,35 @@ static int WorkerThread(void* ctx)
     return 0;
 }
 
-worker* worker_start(thread_mutex_t mutex)
+Worker* WorkerStart(HMutex mutex)
 {
-    worker* w = (worker*)malloc(sizeof(worker));
+    Worker* w   = (Worker*)malloc(sizeof(Worker));
     w->run      = 1;
+    w->jobs     = 0;
     w->mutex    = mutex;
     w->thread   = mg_thread_create(WorkerThread, (void*)w, 2 * (1024*1024));
-    w->jobs     = 0;
     return w;
 }
 
-void worker_stop(worker* w)
+void WorkerStop(Worker* w)
 {
-    thread_mutex_lock(&w->mutex);
-    w->run = 0;
-    thread_mutex_unlock(&w->mutex);
+    {
+        SCOPED_MUTEX(w->mutex);
+        w->run = 0;
+    }
     thread_join(w->thread);
 }
 
-void worker_push_job(worker* w, void (*fn)(void*), void* ctx)
+void WorkerPushJob(Worker* w, FWorkerCallback fn, void* ctx)
 {
-    worker_job* job = (worker_job*)malloc(sizeof(worker_job));
+    WorkerJob* job = (WorkerJob*)malloc(sizeof(WorkerJob));
     job->fn = fn;
     job->ctx = ctx;
     job->next = 0;
 
-    thread_mutex_lock(&w->mutex);
+    SCOPED_MUTEX(w->mutex);
 
-    worker_job* last = w->jobs;
+    WorkerJob* last = w->jobs;
     if (!last)
     {
         w->jobs = job;
@@ -88,6 +94,4 @@ void worker_push_job(worker* w, void (*fn)(void*), void* ctx)
             last = last->next;
         }
     }
-
-    thread_mutex_unlock(&w->mutex);
 }

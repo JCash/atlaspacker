@@ -3,8 +3,6 @@
 extern "C" {
     #include <atlaspacker/util.h>
     #include <atlaspacker/project.h>
-    #include <thread.h>
-    #include "worker.h"
 }
 
 #include <imgui.h>
@@ -13,13 +11,15 @@ extern "C" {
 #include <sokol_app.h>
 
 // External
-#include <array.h>
-#include <hashtable.h>
+#include <external/array.h>
+#include <external/hashtable.h>
 
 // Editor
-#include "tree.h"
-#include "image.h"
 #include "hash.h"
+#include "image.h"
+#include "thread.h"
+#include "tree.h"
+#include "worker.h"
 
 struct AppTexture {
     sg_image        image;
@@ -49,10 +49,10 @@ struct AppState
     int         loading_images; // Loading images is underway
     int         creating_atlas; // Recreating the context, packer and the final atlas
 
-    thread_mutex_t mutex;
-    worker*        thread;
+    HMutex      mutex;
+    HWorker     thread;
 
-    float           zoom;
+    float       zoom;
 
     jc::Array<AppTexture> page_textures;
     apSize                page_size;
