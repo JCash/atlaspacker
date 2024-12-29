@@ -574,8 +574,11 @@ static void ThreadRecreateAtlas(void* _ctx)
         printf("Packing atlas images took %.2f ms\n", (tend-tstart)/1000.0f);
     }
 
-    state->num_pages = 0;
-    state->pages = apRenderPages(project->context, &state->num_pages, 0);
+    {
+        SCOPED_MUTEX(state->mutex);
+        state->num_pages = 0;
+        state->pages = apRenderPages(project->context, &state->num_pages, 0);
+    }
 
     state->creating_atlas = 0;
 }
@@ -1161,8 +1164,12 @@ static void OnSokolFrame(void* user_data)
         {
             if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
             {
-                if (state->pages)
-                    CreateAtlasTextures(state);
+                {
+                    SCOPED_MUTEX(state->mutex);
+
+                    if (state->pages)
+                        CreateAtlasTextures(state);
+                }
 
                 DrawAtlasPages(state);
                 ImGui::EndTabItem();
