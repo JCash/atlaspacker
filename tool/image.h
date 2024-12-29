@@ -14,8 +14,8 @@ struct Image
     int             width;
     int             height;
     int             channels;
-    hash_t          path_hash;
-    const char*     path;
+    hash_t          path_hash;  // hash of the relative path
+    const char*     path;       // The relative path
 };
 
 

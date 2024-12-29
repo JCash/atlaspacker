@@ -67,6 +67,10 @@ struct AppState
 
     jc::HashTable<hash_t, Image*> images; // the raw images
 
+    // Since we have a potential many-to-one mapping from source images to atlas images
+    // it's convenient to keep track of the current hovers and selections here
+    jc::HashTable<hash_t, bool> selected_images;
+
 	TreeNode*   images_root; // The tree of images
 
     // Debug draw options
