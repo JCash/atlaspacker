@@ -306,7 +306,6 @@ static void AddImage(AppState* state, Image* image)
     {
         uint32_t cap = state->images.Capacity() + 32;
         state->images.SetCapacity(cap);
-        state->selected_images.SetCapacity(cap);
     }
     state->images.Put(image->path_hash, image);
 }
@@ -410,6 +409,11 @@ static void DrawImageListTree(AppState* state, TreeNode* root, TreeNode* node)
         {
             CheckSelectNode(root, node);
 
+            if (state->selected_images.Full())
+            {
+                uint32_t cap = state->selected_images.Capacity() + 32;
+                state->selected_images.SetCapacity(cap);
+            }
             state->selected_images.Put(node->path_hash, node->selected || ImGui::IsItemHovered(ImGuiHoveredFlags_None));
 
             if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) && ImGui::IsItemHovered(ImGuiHoveredFlags_None))
