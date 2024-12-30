@@ -10,82 +10,45 @@
 
 struct WorkerJob
 {
-    struct WorkerJob*  next;
-    void                (*fn)(void* ctx);
-    void*               ctx;
+    struct WorkerJob* next;
+
+    void*           ctx;
+    FWorkerProcess  process;
+    FWorkerCallback finished;
+    int             result;
 };
 
 struct Worker
 {
     thread_ptr_t    thread;
-    HMutex          mutex;
-    WorkerJob*     jobs;
+    HMutex          mutex;  // TODO: Use its own mutex!!
+    WorkerJob*      jobs;
+    WorkerJob*      finished;
     int             run;
 };
 
-static int WorkerThread(void* ctx)
-{
-    Worker* w = (Worker*)ctx;
-
-    thread_timer_t timer;
-    thread_timer_init( &timer );
-    while (w->run)
-    {
-        WorkerJob* job = 0;
-        {
-            SCOPED_MUTEX(w->mutex);
-            job = w->jobs;
-            if (job)
-            {
-                w->jobs = w->jobs->next;
-            }
-        }
-
-        if (job)
-        {
-            job->fn(job->ctx);
-        }
-        free((void*)job);
-
-        thread_timer_wait(&timer, 100); // nanoseconds
-    }
-
-    thread_timer_term( &timer );
-    return 0;
-}
-
-Worker* WorkerStart(HMutex mutex)
-{
-    Worker* w   = (Worker*)malloc(sizeof(Worker));
-    w->run      = 1;
-    w->jobs     = 0;
-    w->mutex    = mutex;
-    w->thread   = mg_thread_create(WorkerThread, (void*)w, 2 * (1024*1024));
-    return w;
-}
-
-void WorkerStop(Worker* w)
-{
-    {
-        SCOPED_MUTEX(w->mutex);
-        w->run = 0;
-    }
-    thread_join(w->thread);
-}
-
-void WorkerPushJob(Worker* w, FWorkerCallback fn, void* ctx)
+static WorkerJob* AllocJob(FWorkerProcess process, FWorkerCallback finished, void* job_ctx)
 {
     WorkerJob* job = (WorkerJob*)malloc(sizeof(WorkerJob));
-    job->fn = fn;
-    job->ctx = ctx;
-    job->next = 0;
+    job->process = process;
+    job->finished= finished;
+    job->ctx     = job_ctx;
+    job->result  = 0;
+    job->next    = 0;
+    return job;
+}
 
-    SCOPED_MUTEX(w->mutex);
+static void FreeJob(WorkerJob* job)
+{
+    free((void*)job);
+}
 
-    WorkerJob* last = w->jobs;
+static void AddLast(WorkerJob** list, WorkerJob* job)
+{
+    WorkerJob* last = *list;
     if (!last)
     {
-        w->jobs = job;
+        *list = job;
     }
     else
     {
@@ -93,5 +56,128 @@ void WorkerPushJob(Worker* w, FWorkerCallback fn, void* ctx)
         {
             last = last->next;
         }
+        last->next = job;
+    }
+}
+
+static WorkerJob* PopJob(WorkerJob** list)
+{
+    WorkerJob* job = *list;
+    if (job)
+    {
+        *list = (*list)->next;
+    }
+    return job;
+}
+
+static bool WorkerProcessOneJob(Worker* w)
+{
+    WorkerJob* job = 0;
+    {
+        SCOPED_MUTEX(w->mutex);
+        job = PopJob(&w->jobs);
+    }
+
+    if (!job)
+        return false;
+
+    job->result = job->process(job->ctx);
+
+    {
+        SCOPED_MUTEX(w->mutex);
+        if (job->finished)
+            AddLast(&w->finished, job);
+        else
+            FreeJob(job);
+    }
+    return true;
+}
+
+static int WorkerThread(void* ctx)
+{
+    Worker* w = (Worker*)ctx;
+
+    thread_timer_t timer;
+    thread_timer_init( &timer );
+
+    while (true)
+    {
+        {
+            SCOPED_MUTEX(w->mutex);
+            if (!w->run)
+                break;
+        }
+
+        WorkerProcessOneJob(w);
+
+        // TODO: Add wake on signal instead!
+        thread_timer_wait(&timer, 1000); // nanoseconds
+    }
+
+    thread_timer_term( &timer );
+    return 0;
+}
+
+HWorker WorkerStartNoThread(HMutex mutex)
+{
+    Worker* w   = (Worker*)malloc(sizeof(Worker));
+    w->run      = 1;
+    w->jobs     = 0;
+    w->finished = 0;
+    w->mutex    = mutex;
+    w->thread   = 0;
+    return w;
+}
+
+Worker* WorkerStart(HMutex mutex)
+{
+    Worker* w = WorkerStartNoThread(mutex);
+    w->thread = mg_thread_create(WorkerThread, (void*)w, 2 * (1024*1024));
+    return w;
+}
+
+void WorkerStop(Worker* w)
+{
+    if (!w->thread)
+        return;
+
+    {
+        SCOPED_MUTEX(w->mutex);
+        w->run = 0;
+    }
+    thread_join(w->thread);
+}
+
+void WorkerPushJob(Worker* w, FWorkerProcess process, FWorkerCallback finished, void* job_ctx)
+{
+    WorkerJob* job = AllocJob(process, finished, job_ctx);
+    SCOPED_MUTEX(w->mutex);
+    AddLast(&w->jobs, job);
+}
+
+void WorkerUpdate(Worker* w)
+{
+    if (!w->thread) // not threaded
+    {
+        while(WorkerProcessOneJob(w))
+        {
+            //
+        }
+    }
+
+    // Process the finished jobs
+    WorkerJob* job = 0;
+    {
+        SCOPED_MUTEX(w->mutex);
+        job = w->finished;
+        w->finished = 0;
+    }
+
+    while (job)
+    {
+        if (job->finished)
+            job->finished(job->result, job->ctx);
+        FreeJob(job);
+        job = job->next;
     }
 }

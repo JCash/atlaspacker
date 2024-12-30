@@ -58,3 +58,4 @@ image*.tga
 
 ./external/repos
 
+**/.DS_Store

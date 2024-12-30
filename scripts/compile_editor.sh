@@ -53,11 +53,14 @@ function compile_objcxx_file {
     run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o -ObjC++ ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} ${SOKOL_DEFINES} -c ${name}
 }
 
-compile_cxx_file tool/worker.cpp
-compile_cxx_file tool/image.cpp
+compile_cxx_file tool/commands.cpp
+compile_cxx_file tool/gui.cpp
 compile_cxx_file tool/hash.cpp
-compile_cxx_file tool/tree.cpp
+compile_cxx_file tool/image.cpp
+compile_cxx_file tool/state.cpp
 compile_cxx_file tool/thread.cpp
+compile_cxx_file tool/tree.cpp
+compile_cxx_file tool/worker.cpp
 compile_objcxx_file tool/editor.cpp
 
 run_cmd ${LD} -o ${BUILD_DIR}/${PRODUCT} \

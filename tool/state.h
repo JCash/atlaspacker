@@ -1,9 +1,15 @@
+// https://github.com/JCash/atlaspacker
+// License: MIT
+// @2021-@2024 Mathias Westerdahl
+
 #pragma once
 
 extern "C" {
     #include <atlaspacker/util.h>
     #include <atlaspacker/project.h>
 }
+
+#include <stdint.h>
 
 #include <imgui.h>
 
@@ -33,29 +39,24 @@ struct AppState
     const char* path;
     apProject*  project;
 
-    // Trick to delay open a file dialog
-    int                     open_project_dialog:1;	// For opening a project open dialog
-    int                     save_project_dialog:1;  // For opening a project save dialog
-    int                     open_file_dialog:1;		// For adding an image file to the project
-    int                     open_folder_dialog:1;	// For adding a folder containing image file to the project
-    const char*             file_dialog_extensions;
-    FileDialogCallbackFn    file_dialog_callback;
+    HMutex      mutex;      // Protects the state
 
-    // state
-    int         dirty:1; // Changes were made, and the project is dirty
-
-    // Async state
-    int         dirty_fileset; 	// The images need to be loaded
-    int         loading_images; // Loading images is underway
-    int         creating_atlas; // Recreating the context, packer and the final atlas
-
-    HMutex      mutex;
     HWorker     thread;
+    HWorker     uithread;   // Delayed jobs like file open dialogs
+
+    // Set if a modal dialog is already opened. To disable accidental ImGui interactions
+    int         modal_dialog:1;
+    // Changes were made, and the project is dirty
+    int         dirty:1;
+
+    // // Async state
+    int         loading_images; // Loading images is underway
+    // int         creating_atlas; // Recreating the context, packer and the final atlas
 
     float       zoom;
 
-    jc::Array<AppTexture> page_textures;
-    apSize                page_size;
+    jc::Array<AppTexture*> page_textures;
+    apSize                 page_size;
 
     // If set, then the textures need to be recreated
     // OpenGL requires you to do this on the context thread (unless you create an aux context)
@@ -77,3 +78,25 @@ struct AppState
     bool        debug_draw_triangles;
 };
 
+// ****************************************************************************************
+// Project
+void    ProjectAddSource(AppState* state, const char** paths, uint32_t num_paths);
+
+// ****************************************************************************************
+// Images
+Image*  GetImage(AppState* state, hash_t path_hash);
+void    AddImage(AppState* state, Image* image);
+void    DestroyImages(AppState* state);
+
+// ****************************************************************************************
+// Textures
+void        DeleteTexture(AppTexture* texture);
+AppTexture* CreateTexture(uint8_t* image, int width, int height, int channels);
+AppTexture* CreateTextureFromImage(Image* image);
+
+// ****************************************************************************************
+// Page textures
+void AllocPagesTextures(AppState* state, int count);
+void DeletePageTextures(AppState* state);
+void CreateDefaultTexture(AppState* state);
+void CreateAtlasTextures(AppState* state);
