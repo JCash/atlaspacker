@@ -27,8 +27,6 @@ extern "C" {
 #include <sokol_glue.h>
 #include <sokol_imgui.h>
 
-static const char* VERSION = "0.1";
-
 // #define NOC_FILE_DIALOG_IMPLEMENTATION
 // #if defined(__APPLE__)
 //     #define NOC_FILE_DIALOG_OSX
@@ -58,7 +56,6 @@ static const char* VERSION = "0.1";
     #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_SUPER
 #endif
 
-// TODO: Move this to AppState
 static struct {
     sg_pass_action pass_action;
 } SokolActionState;
@@ -96,8 +93,8 @@ static bool Quit(AppState* state)
         state->project = 0;
     }
 
-    WorkerStop(state->thread);
-    WorkerStop(state->uithread);
+    WorkerDestroy(state->thread);
+    WorkerDestroy(state->uithread);
 
     MutexDestroy(state->mutex);
 
@@ -241,8 +238,8 @@ int main(int argc, char* argv[])
 
     state.mutex = MutexCreate();
 
-    state.thread = WorkerStart(state.mutex);
-    state.uithread = WorkerStartNoThread(state.mutex);
+    state.thread = WorkerCreate();
+    state.uithread = WorkerCreateNoThread();
 
     if (argc > 1)
     {

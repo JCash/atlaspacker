@@ -3,6 +3,8 @@
 // @2021-@2024 Mathias Westerdahl
 
 #include "worker.h"
+#include "thread.h"
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -118,34 +120,36 @@ static int WorkerThread(void* ctx)
     return 0;
 }
 
-HWorker WorkerStartNoThread(HMutex mutex)
+HWorker WorkerCreateNoThread()
 {
     Worker* w   = (Worker*)malloc(sizeof(Worker));
     w->run      = 1;
     w->jobs     = 0;
     w->finished = 0;
-    w->mutex    = mutex;
+    w->mutex    = MutexCreate();
     w->thread   = 0;
     return w;
 }
 
-Worker* WorkerStart(HMutex mutex)
+Worker* WorkerCreate()
 {
-    Worker* w = WorkerStartNoThread(mutex);
+    Worker* w = WorkerCreateNoThread();
     w->thread = mg_thread_create(WorkerThread, (void*)w, 2 * (1024*1024));
     return w;
 }
 
-void WorkerStop(Worker* w)
+void WorkerDestroy(Worker* w)
 {
-    if (!w->thread)
-        return;
-
+    if (w->thread)
     {
-        SCOPED_MUTEX(w->mutex);
-        w->run = 0;
+        {
+            SCOPED_MUTEX(w->mutex);
+            w->run = 0;
+        }
+        thread_join(w->thread);
     }
-    thread_join(w->thread);
+    MutexDestroy(w->mutex);
+    free((void*)w);
 }
 
 void WorkerPushJob(Worker* w, FWorkerProcess process, FWorkerCallback finished, void* job_ctx)

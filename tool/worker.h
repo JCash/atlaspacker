@@ -4,18 +4,18 @@
 
 #pragma once
 
-#include "thread.h"
-
 typedef struct Worker* HWorker;
 
 typedef int  (*FWorkerProcess)(void* ctx);
 typedef void (*FWorkerCallback)(int result, void* ctx);
 
-HWorker WorkerStart(HMutex mutex);
-
-void    WorkerStop(HWorker worker);
+// Creates a worker with a thread
+HWorker WorkerCreate();
+// Creates a worker with no thread
+HWorker WorkerCreateNoThread();
+// Joins the thread and then destroys the worker
+void    WorkerDestroy(HWorker worker);
+// Push a single job onto the worker
 void    WorkerPushJob(HWorker worker, FWorkerProcess process, FWorkerCallback finished, void* job_ctx);
-
-//
-HWorker WorkerStartNoThread(HMutex mutex);
+// Flush all finished jobs and do callbacks on the current thread
 void    WorkerUpdate(HWorker worker);

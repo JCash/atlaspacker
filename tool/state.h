@@ -32,6 +32,8 @@ struct AppTexture {
     ImTextureID     texture_id;
 };
 
+static const char* VERSION = "0.1";
+
 typedef void (*FileDialogCallbackFn)(struct AppState* state, const char** paths, int num_paths);
 
 struct AppState
