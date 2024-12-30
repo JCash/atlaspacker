@@ -593,5 +593,5 @@ void DrawEditor(AppState* state, int width, int height)
         }
     ImGui::End();
 
-    ImGui::ShowDemoWindow();
+    //ImGui::ShowDemoWindow();
 }

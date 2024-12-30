@@ -8,6 +8,13 @@ typedef struct Worker* HWorker;
 
 struct AppState;
 
+// Internal
+enum CommandResult
+{
+    RESULT_OK = 0,
+    RESULT_FAILED = -1,
+};
+
 // Delay jobs for the main thread
 void CommandProjectFileOpen(HWorker worker, AppState* state);
 void CommandProjectFileSave(HWorker worker, AppState* state);

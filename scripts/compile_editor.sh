@@ -53,7 +53,10 @@ function compile_objcxx_file {
     run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o -ObjC++ ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} ${SOKOL_DEFINES} -c ${name}
 }
 
-compile_cxx_file tool/commands.cpp
+rm ${BUILD_DIR}/*.o
+
+compile_cxx_file tool/commands_project.cpp
+compile_cxx_file tool/commands_misc.cpp
 compile_cxx_file tool/gui.cpp
 compile_cxx_file tool/hash.cpp
 compile_cxx_file tool/image.cpp
