@@ -64,8 +64,9 @@ echo "  LUA 5.1"
 echo "************************************************"
 
 PREFIX=lib_lua_
+LUA_DIR=external/repos/lua
 CFLAGS="${CFLAGS} -DMAKE_LIB -Wno-unused-function -Wno-implicit-int-conversion -Wno-shorten-64-to-32"
-compile_c_file external/repos/lua/onelua.c ${PREFIX}
+compile_c_file ${LUA_DIR}/onelua.c ${PREFIX}
 compile_lib lua51 ${PREFIX}
 
 

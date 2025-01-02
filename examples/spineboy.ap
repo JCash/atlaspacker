@@ -12,5 +12,19 @@
 			"padding":	0,
 			"alpha_threshold":	1
 		}
+	},
+	"exporter":	{
+		"exporter": "Defold",
+		"options": [
+			{
+				"name": "atlas_file",
+				"value":	"default.tpinfo"
+			},
+			{
+				"name": "old_value",
+				"value":	"Some Old Value"
+			}
+
+		]
 	}
 }

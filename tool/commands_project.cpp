@@ -16,6 +16,8 @@ extern "C" {
 
 #include <stdio.h> // printf
 
+const char* TEST_EXPORTER_PATH = "exporters/defold/exporter.lua";
+
 static void SetModalDialog(AppState* state, int set)
 {
     SCOPED_MUTEX(state->mutex);
@@ -61,6 +63,13 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
         apProject* project = apLoadProjectFromPath(ctx->path);
         if (project)
         {
+            if (!apExportUpdateOptions(project, TEST_EXPORTER_PATH))
+            {
+
+            }
+
+            project->exporter_defaults = apExportGetDefaultOptions(project, TEST_EXPORTER_PATH);
+
             apDebugPrintProject(project);
 
             if (state->project)
@@ -69,7 +78,7 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
             SCOPED_MUTEX(state->mutex);
             state->project = project;
             state->path    = ctx->path;
-            ctx->path       = 0;
+            ctx->path      = 0;
 
             CommandLoadImages(state->thread, state);
         }
@@ -110,6 +119,8 @@ static int ProjectFileSave_Process(void* _ctx)
             {
                 r = true;
                 state->path = outpath; // it'll be deleted with the project
+
+                printf("MAWE Wrote document: %s\n", state->path);
             }
             else
             {
@@ -257,22 +268,18 @@ void CommandAddImageFolder(HWorker worker, AppState* state)
 static int ProjectFileExport_Process(void* _ctx)
 {
     AppState* state = (AppState*)_ctx;
-    SetModalDialog(state, 1);
 
     SCOPED_MUTEX(state->mutex);
 
     if (!state->project)
     {
-        // pass
+        return RESULT_FAILED;
     }
-    else
-    {
-        // TODO: Each exporter could expose settings.
-        // We could store those settings as json, and pass them on to this function when exporting
-        const char* exporter_path = "exporters/defold/exporter.lua";
-        const char* output_path = "/Users/mathiaswesterdahl/work/projects/users/mawe/extension-texturepacker/examples/ap/spineboy/ap_spineboy.tpinfo";
-        apExportProject(state->project, exporter_path, output_path);
-    }
+
+    // TODO: Each exporter could expose settings.
+    // We could store those settings as json, and pass them on to this function when exporting
+    const char* output_path = "/Users/mathiaswesterdahl/work/projects/users/mawe/extension-texturepacker/examples/ap/spineboy/ap_spineboy.tpinfo";
+    apExportProject(state->project, TEST_EXPORTER_PATH, output_path);
 
     return RESULT_OK;
 }

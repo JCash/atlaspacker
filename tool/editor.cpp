@@ -231,6 +231,8 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
     }
 }
 
+extern const char* TEST_EXPORTER_PATH;
+
 int main(int argc, char* argv[])
 {
     AppState state;
@@ -252,6 +254,18 @@ int main(int argc, char* argv[])
         {
             fprintf(stderr, "Failed to read prooject from %s\n", state.path);
             state.project = apLoadProjectFromMemory("untitled", 0);
+        }
+        else
+        {
+            if (!apExportUpdateOptions(state.project, TEST_EXPORTER_PATH))
+            {
+
+            }
+
+            state.project->exporter_defaults = apExportGetDefaultOptions(state.project, TEST_EXPORTER_PATH);
+
+            // verbose
+            apDebugPrintProject(state.project);
         }
 
         if (dirty_fileset)

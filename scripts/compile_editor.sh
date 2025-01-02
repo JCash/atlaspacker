@@ -53,7 +53,10 @@ function compile_objcxx_file {
     run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o -ObjC++ ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} ${SOKOL_DEFINES} -c ${name}
 }
 
-rm ${BUILD_DIR}/*.o
+if [ -f ${BUILD_DIR}/${PRODUCT} ]; then
+    rm ${BUILD_DIR}/*.o
+    rm ${BUILD_DIR}/${PRODUCT}
+fi
 
 compile_cxx_file tool/commands_project.cpp
 compile_cxx_file tool/commands_misc.cpp
@@ -74,12 +77,12 @@ run_cmd ${LD} -o ${BUILD_DIR}/${PRODUCT} \
 		-framework CoreGraphics \
 		-framework AppKit \
 		-framework OpenGL \
+        -latlaspacker \
+        -limgui \
+        -llua51 \
+        -lnfd \
+        -lstb \
         -lcjson \
-		-latlaspacker \
-		-lstb \
-		-lnfd \
-		-limgui \
-		-llua51 \
         -lxxhash \
 		${BUILD_DIR}/*.o
 

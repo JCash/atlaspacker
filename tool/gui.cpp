@@ -472,6 +472,182 @@ static void DrawAtlasPages(AppState* state)
     ImGui::EndChild();
 }
 
+static bool DrawOption(apOptionValue* option, apOptionValue* base)
+{
+    if (!base)
+        base = option;
+
+    const char* name = base->display ? base->display : base->name;
+    const char* edit = base->edit ? base->edit : (option->edit ? option->edit : "");
+    const char* desc = base->desc;
+    bool dirty = false;
+
+    switch(base->type)
+    {
+    case OVT_BOOL:
+        {
+            bool value = option->value.number != 0;
+            if ((dirty = ImGui::Checkbox(name, &value)))
+            {
+                option->value.number = value;
+
+                if (desc)
+                    ImGui::SetItemTooltip("%s", desc);
+            }
+        } break;
+
+    case OVT_NUMBER:
+        {
+            if (strcmp(edit, "int") == 0)
+            {
+                int value = (int)option->value.number;
+                if ((dirty = ImGui::InputInt(name, &value)))
+                {
+                    option->value.number = value;
+
+                    if (desc)
+                        ImGui::SetItemTooltip("%s", desc);
+                }
+            }
+            else
+            {
+                double value = option->value.number;
+                if ((dirty = ImGui::InputDouble(name, &value)))
+                {
+                    option->value.number = value;
+
+                    if (desc)
+                        ImGui::SetItemTooltip("%s", desc);
+                }
+            }
+        } break;
+
+    case OVT_STRING:
+        {
+            const char* value = option->value.string;
+
+            char buffer[1024];
+            size_t buffer_size = sizeof(buffer);
+            strncpy(buffer, value, buffer_size);
+
+            if (strcmp(edit, "file") == 0)
+            {
+                if (ImGui::Button("..."))
+                {
+                    // TODO: Open file selection!
+
+                    // MAKE PATH RELATIVE to the project file!
+
+                    if (desc)
+                        ImGui::SetItemTooltip("%s", desc);
+                }
+
+                ImGui::SameLine(0);
+
+                if ((dirty = ImGui::InputText(name, buffer, buffer_size)))
+                {
+                    free((void*)option->value.string);
+                    option->value.string = strdup(buffer);
+
+                    if (desc)
+                        ImGui::SetItemTooltip("%s", desc);
+                }
+            }
+            else
+            {
+                if ((dirty = ImGui::InputText(name, buffer, buffer_size)))
+                {
+                    free((void*)option->value.string);
+                    option->value.string = strdup(buffer);
+
+                    if (desc)
+                        ImGui::SetItemTooltip("%s", desc);
+                }
+            }
+        } break;
+    }
+
+    return dirty;
+}
+
+static apOptionValue* FindOptionByName(apOptionValue* options, const char* name)
+{
+    while (options)
+    {
+        if (strcmp(name, options->name) == 0)
+            return options;
+        options = options->next;
+    }
+    return 0;
+}
+
+static bool DrawOptions(apOptionValue* options, apOptionValue* defaults)
+{
+    // TODO: Check if we're altering a default option.
+    // if so, we need to add the altered option to the project options
+
+    bool dirty = false;
+    while (defaults)
+    {
+        apOptionValue* option = FindOptionByName(options, defaults->name);
+        if (!option)
+            option = defaults;
+        dirty |= DrawOption(option, defaults);
+        defaults = defaults->next;
+    }
+    return dirty;
+}
+
+static void DrawExporterOptions(AppState* state)
+{
+    SCOPED_MUTEX(state->mutex);
+
+    apProject* project = state->project;
+
+    if (!project || !project->context)
+        return;
+
+    ImGui::BeginGroup();
+
+    ImGui::Separator();
+
+    // TODO: Find a list of valid exporters
+    const char* exporter_names[] = {"Defold"};
+    int num_exporter_names = sizeof(exporter_names)/sizeof(exporter_names[0]);
+
+    const char* current_exporter = project->exporter;
+    int exporter_name_index = 0;
+
+    if (current_exporter)
+    {
+        for (exporter_name_index = 0; exporter_name_index < num_exporter_names; ++exporter_name_index)
+        {
+            if (strcmp(exporter_names[exporter_name_index], current_exporter) == 0)
+                break;
+        }
+    }
+
+    if (ImGui::Combo("Exporter", &exporter_name_index, exporter_names, num_exporter_names, 0))
+    {
+        free((void*)project->exporter);
+        project->exporter = strdup(exporter_names[exporter_name_index]);
+    }
+
+    ImGui::Separator();
+
+    ImGui::Text("Exporter Options");
+
+    bool dirty = false;
+    if (project->exporter_options)
+    {
+        dirty |= DrawOptions(project->exporter_options, project->exporter_defaults);
+    }
+
+    ImGui::EndGroup();
+
+    ImGui::Separator();
+}
+
 void DrawEditor(AppState* state, int width, int height)
 {
     ImGui::SetNextWindowPos(ImVec2(0,0), ImGuiCond_Always);
@@ -519,9 +695,6 @@ void DrawEditor(AppState* state, int width, int height)
         {
             if (ImGui::MenuItem("Open...", "CTRL+O"))
             {
-            }
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
-            {
                 // macOS: Since the file dialog mustn't be opened in the
                 // scope of a sokol frame, we need to delay it.
                 // And since the ImGui::Button() reacts on mouse UP, and the Sokol
@@ -529,19 +702,32 @@ void DrawEditor(AppState* state, int width, int height)
                 // a left click
                 CommandProjectFileOpen(state->uithread, state);
             }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            {
+                // macOS: See comment above
+                CommandProjectFileOpen(state->uithread, state);
+            }
 
             if (ImGui::MenuItem("Save", "CTRL+S"))
             {
+                // macOS: See comment above
                 CommandProjectFileSave(state->uithread, state);
             }
             if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
             {
-                // macOS: Since the file dialog mustn't be opened in the
-                // scope of a sokol frame, we need to delay it.
-                // And since the ImGui::Button() reacts on mouse UP, and the Sokol
-                // on_event callback happends before this, we need to start the process on
-                // a left click
+                // macOS: See comment above
                 CommandProjectFileSave(state->uithread, state);
+            }
+
+            if (ImGui::MenuItem("Export", "CTRL+E"))
+            {
+                // macOS: See comment above
+                CommandProjectFileSave(state->uithread, state);
+            }
+            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            {
+                // macOS: See comment above
+                CommandProjectFileExport(state->uithread, state);
             }
 
             ImGui::EndMenu();
@@ -565,7 +751,7 @@ void DrawEditor(AppState* state, int width, int height)
 
         if (ImGui::BeginTabItem("Exporter", 0, ImGuiTabItemFlags_None))
         {
-            //DrawExporterOptions();
+            DrawExporterOptions(state);
             ImGui::EndTabItem();
         }
 
@@ -578,13 +764,6 @@ void DrawEditor(AppState* state, int width, int height)
         {
             if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
             {
-                // {
-                //     SCOPED_MUTEX(state->mutex);
-
-                //     if (state->pages)
-                //         CreateAtlasTextures(state);
-                // }
-
                 DrawAtlasPages(state);
                 ImGui::EndTabItem();
             }

@@ -86,7 +86,6 @@ static int IsSubImageNonEmpty(int tile_size, int x, int y,
 Page* apRenderPages(apContext* context, int* num_pages, uint32_t debug_color)
 {
     int channels = context->num_channels;
-printf("apRenderPages channels: %d\n", channels);
 
     *num_pages = apGetNumPages(context);
 

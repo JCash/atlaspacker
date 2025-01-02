@@ -6,4 +6,10 @@
 
 #include <atlaspacker/project.h>
 
+// Gets the default options, with edit types and default values
+apOptionValue* apExportGetDefaultOptions(apProject* project, const char* exporter_path);
+
+// Allows the exporter to update the options. Return 0 if unsuccessul
+int apExportUpdateOptions(apProject* project, const char* exporter_path);
+
 int apExportProject(apProject* project, const char* exporter_path, const char* output_path);

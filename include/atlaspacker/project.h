@@ -3,6 +3,7 @@
 // @2021-@2024 Mathias Westerdahl
 
 #pragma once
+
 #include "atlaspacker.h"
 #include "tilepacker.h"
 #include "binpacker.h"
@@ -12,6 +13,27 @@ typedef enum PackerType
     PT_TILEPACKER,
     PT_BINPACKER,
 } PackerType;
+
+typedef enum OptionValueType
+{
+    OVT_BOOL,
+    OVT_NUMBER,
+    OVT_STRING,
+} OptionValueType;
+
+typedef struct apOptionValue
+{
+    struct apOptionValue* next;
+    const char*           name;
+    const char*           edit;
+    const char*           desc;
+    const char*           display;
+    union {
+        double      number;
+        const char* string;
+    } value;
+    OptionValueType type;
+} apOptionValue;
 
 typedef struct
 {
@@ -27,6 +49,10 @@ typedef struct
     PackerType          packer_type;
     apPacker*           packer;  // The packer to use. 0 if setup is invalid
     apContext*          context; // The final context to use. 0 if setup is invalid
+
+    const char*         exporter; // Name of the exporter
+    apOptionValue*      exporter_options;
+    apOptionValue*      exporter_defaults; // Only loaded in the editor
 
     // The images are unaffected by the packer settings
     apImage*            images;
@@ -44,6 +70,7 @@ void apProjectAddSources(apProject* project, const char** sources, int num_sourc
 void apProjectLoadImages(apProject* project);
 void apProjectPackerPrepareImages(apProject* project);
 
-
+// internal
+void apDestroyOptions(apOptionValue* option);
 
 void apDebugPrintProject(apProject* p);

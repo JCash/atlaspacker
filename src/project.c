@@ -35,6 +35,14 @@ static int GetInt(cJSON* object, const char* name, int default_value)
 	return (int)cJSON_GetNumberValue(var);
 }
 
+static const char* GetString(cJSON* object, const char* name, const char* default_value)
+{
+    cJSON* var = cJSON_GetObjectItemCaseSensitive(object, name);
+    if (!var || !cJSON_IsString(var))
+        return default_value;
+    return cJSON_GetStringValue(var);
+}
+
 // static bool GetBool(cJSON* object, const char* name, bool default_value)
 // {
 // 	cJSON* var = cJSON_GetObjectItemCaseSensitive(object, name);
@@ -111,11 +119,89 @@ static void ParsePacker(apProject* p, cJSON* packer)
         ParseBinPackerOptions(p, packer_type_object);
 }
 
+static void DestroyOptionValue(apOptionValue* option)
+{
+    free((void*)option->name);
+    free((void*)option->edit);
+    free((void*)option->desc);
+    free((void*)option->display);
+    if (option->type == OVT_STRING)
+        free((void*)option->value.string);
+    free((void*)option);
+}
+
+static apOptionValue* ParseOptionItem(cJSON* item)
+{
+    if (!cJSON_IsObject(item) || cJSON_IsInvalid(item))
+        return 0;
+
+    apOptionValue* option = (apOptionValue*)malloc(sizeof(apOptionValue));
+    memset(option, 0, sizeof(*option));
+
+    const char* name = GetString(item, "name", 0);
+    if (!name)
+        return 0;
+
+    option->name = strdup(name);
+
+    const char* edit = GetString(item, "edit", 0);
+    option->edit = edit ? strdup(edit) : 0;
+
+    cJSON* value = cJSON_GetObjectItemCaseSensitive(item, "value");
+    if (cJSON_IsBool(value))
+    {
+        option->value.number = cJSON_IsTrue(value);
+        option->type = OVT_BOOL;
+    }
+    else if (cJSON_IsNumber(value))
+    {
+        option->value.number = cJSON_GetNumberValue(value);
+        option->type = OVT_NUMBER;
+    }
+    else if (cJSON_IsString(value))
+    {
+        option->value.string = strdup(cJSON_GetStringValue(value));
+        option->type = OVT_STRING;
+    }
+    else
+    {
+        fprintf(stderr, "Property {name = '%s'} has mismatching value type (%d)", name, value->type);
+        DestroyOptionValue(option);
+        option = 0;
+    }
+
+    return option;
+}
+
+static void ParseExporter(apProject* p, cJSON* exporter)
+{
+    p->exporter = GetString(exporter, "exporter", 0);
+    p->exporter = p->exporter ? strdup(p->exporter) : 0;
+
+    // Keep them serialized for the presentation in the gui
+    cJSON* options = cJSON_GetObjectItemCaseSensitive(exporter, "options");
+    apOptionValue* last = 0;
+    cJSON* item;
+    cJSON_ArrayForEach(item, options)
+    {
+        apOptionValue* next = ParseOptionItem(item);
+
+        if (next)
+        {
+            if (!p->exporter_options)
+                p->exporter_options = next;
+            else
+                last->next = next;
+            last = next;
+        }
+    }
+}
 
 static void ParseProjectFromJson(apProject* p, cJSON* json)
 {
 	ParseSources(p, cJSON_GetObjectItemCaseSensitive(json, "sources"));
 	ParsePacker(p, cJSON_GetObjectItemCaseSensitive(json, "packer"));
+    ParseExporter(p, cJSON_GetObjectItemCaseSensitive(json, "exporter"));
 }
 
 apProject* apLoadProjectFromMemory(const char* path, void* data)
@@ -138,6 +224,8 @@ apProject* apLoadProjectFromMemory(const char* path, void* data)
 	apProject* p = (apProject*)malloc(sizeof(apProject));
 	p->packer = 0;
 	p->context = 0;
+    p->exporter = 0;
+    p->exporter_options = 0;
 
     apSetDefaultOptions(&p->options);
     apTilePackerSetDefaultOptions(&p->options_tp);
@@ -167,6 +255,16 @@ apProject* apLoadProjectFromPath(const char* path)
 	return project;
 }
 
+void apDestroyOptions(apOptionValue* option)
+{
+    while (option)
+    {
+        apOptionValue* next = option->next;
+        DestroyOptionValue(option);
+        option = next;
+    }
+}
+
 void apDestroyProject(apProject* project)
 {
     if (project->context)
@@ -175,6 +273,9 @@ void apDestroyProject(apProject* project)
         apTilePackerDestroy(project->packer);
     if (project->packer_type == PT_BINPACKER && project->packer)
         apBinPackerDestroy(project->packer);
+    apDestroyOptions(project->exporter_options);
+    apDestroyOptions(project->exporter_defaults);
+    free((void*)project->exporter);
     free((void*)project);
 }
 
@@ -195,6 +296,21 @@ static void SaveBinPackerOptions(apProject* project, cJSON* packer_options)
 {
     cJSON_AddNumberToObject(packer_options, "mode", project->options_bp.mode);
     cJSON_AddNumberToObject(packer_options, "no_rotate", project->options_bp.no_rotate);
+}
+
+static void SaveExporterOptions(apProject* project, cJSON* parent)
+{
+    apOptionValue* option = project->exporter_options;
+    while (option)
+    {
+        switch(option->type)
+        {
+        case OVT_BOOL:  cJSON_AddBoolToObject(parent, option->name, option->value.number != 0); break;
+        case OVT_NUMBER:cJSON_AddNumberToObject(parent, option->name, option->value.number); break;
+        case OVT_STRING:cJSON_AddStringToObject(parent, option->name, option->value.string); break;
+        }
+        option = option->next;
+    }
 }
 
 int apSaveProject(const char* path, apProject* project)
@@ -233,6 +349,19 @@ int apSaveProject(const char* path, apProject* project)
         SaveTilePackerOptions(project, packer_options);
     }
 
+    if (project->exporter)
+    {
+        cJSON* exporter = cJSON_CreateObject();
+        cJSON_AddItemToObject(doc, "exporter", exporter);
+
+        cJSON_AddStringToObject(exporter, "exporter", project->exporter);
+
+        if (project->exporter_options)
+        {
+            cJSON* options = cJSON_AddObjectToObject(exporter, "options");
+            SaveExporterOptions(project, options);
+        }
+    }
 
     char* json_str = cJSON_Print(doc);
 
@@ -246,9 +375,6 @@ int apSaveProject(const char* path, apProject* project)
     }
     fwrite(json_str, strlen(json_str), 1, file);
     fclose(file);
-
-
-    printf("MAWE Wrote document: %s\n", path);
 
     cJSON_free(json_str);
     cJSON_Delete(doc);
@@ -303,6 +429,28 @@ void apDebugPrintProject(apProject* p)
 		printf("    no_rotate: %d\n", p->options_bp.no_rotate);
 		printf("    mode: %d\n", p->options_bp.mode);
 	}
+
+    if (p->exporter)
+    {
+        printf("  exporter:\n");
+        printf("    exporter: %s\n", p->exporter);
+        if (p->exporter_options)
+        {
+            printf("    options:\n");
+            apOptionValue* option = p->exporter_options;
+            while (option)
+            {
+                switch(option->type)
+                {
+                case OVT_BOOL:      printf("      '%s': '%s'\n", option->name, option->value.number != 0 ? "true":"false"); break;
+                case OVT_NUMBER:    printf("      '%s': %f\n", option->name, option->value.number); break;
+                case OVT_STRING:    printf("      '%s': %s\n", option->name, option->value.string); break;
+                }
+
+                option = option->next;
+            }
+        }
+    }
 
 	printf("  \n");
 }
