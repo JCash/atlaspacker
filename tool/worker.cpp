@@ -181,7 +181,8 @@ void WorkerUpdate(Worker* w)
     {
         if (job->finished)
             job->finished(job->result, job->ctx);
+        WorkerJob* next = job->next;
         FreeJob(job);
-        job = job->next;
+        job = next;
     }
 }
