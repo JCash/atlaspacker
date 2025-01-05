@@ -14,7 +14,7 @@
 		}
 	},
 	"exporter":	{
-		"exporter": "Defold",
+		"exporter": "defold",
 		"options": [
 			{
 				"name": "atlas_file",

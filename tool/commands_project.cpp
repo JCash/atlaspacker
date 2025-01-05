@@ -55,6 +55,7 @@ static int ProjectFileOpen_Process(void* _ctx)
 // Called on main thread
 static void ProjectFileOpen_Finished(int result, void* _ctx)
 {
+    // TODO: Add a ProjectLoad command
     ProjectFileOpenContext* ctx = (ProjectFileOpenContext*)_ctx;
     AppState* state = ctx->state;
 
@@ -63,12 +64,12 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
         apProject* project = apLoadProjectFromPath(ctx->path);
         if (project)
         {
-            if (!apExportUpdateOptions(project, TEST_EXPORTER_PATH))
+            if (!apExportUpdateOptions(project, state->exporter_path))
             {
 
             }
 
-            project->exporter_defaults = apExportGetDefaultOptions(project, TEST_EXPORTER_PATH);
+            project->exporter_defaults = apExportGetDefaultOptions(project, state->exporter_path);
 
             apDebugPrintProject(project);
 
@@ -276,10 +277,12 @@ static int ProjectFileExport_Process(void* _ctx)
         return RESULT_FAILED;
     }
 
-    // TODO: Each exporter could expose settings.
-    // We could store those settings as json, and pass them on to this function when exporting
-    const char* output_path = "/Users/mathiaswesterdahl/work/projects/users/mawe/extension-texturepacker/examples/ap/spineboy/ap_spineboy.tpinfo";
-    apExportProject(state->project, TEST_EXPORTER_PATH, output_path);
+    if (!state->exporter_path)
+    {
+        return RESULT_FAILED;
+    }
+
+    apExportProject(state->project, state->exporter_path, state->path);
 
     return RESULT_OK;
 }

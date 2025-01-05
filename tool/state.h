@@ -67,7 +67,6 @@ struct AppState
 
     int             max_image_size; // What is the largest image size in the set?
 
-
     jc::HashTable<hash_t, Image*> images; // the raw images
 
     // Since we have a potential many-to-one mapping from source images to atlas images
@@ -76,8 +75,15 @@ struct AppState
 
 	TreeNode*   images_root; // The tree of images
 
+
     // Debug draw options
     bool        debug_draw_triangles;
+
+    // ***************************************************************************
+    // Editor settings
+
+    jc::Array<const char*> exporter_folders; // where to look for the exporters
+    const char*            exporter_path;    // The currently selected exporter
 };
 
 // ****************************************************************************************
@@ -102,3 +108,12 @@ void AllocPagesTextures(AppState* state, int count);
 void DeletePageTextures(AppState* state);
 void CreateDefaultTexture(AppState* state);
 void CreateAtlasTextures(AppState* state);
+
+// ****************************************************************************************
+// Exporter folders
+void AddExporterFolder(AppState* state, const char* folder);
+void UpdateExporterFolders(AppState* state);
+void FreeExporterFolders(AppState* state);
+
+// Find an exporter using a base name `name.lua` (i.e. without the suffix)
+const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size);

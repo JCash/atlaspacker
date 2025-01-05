@@ -1,8 +1,10 @@
+#include <limits.h>
 #include <stdint.h>
 
 #include "commands.h"
 #include "gui.h"
 #include "state.h"
+#include "sys.h"
 #include "thread.h"
 #include "worker.h"
 
@@ -97,6 +99,9 @@ static bool Quit(AppState* state)
     WorkerDestroy(state->uithread);
 
     MutexDestroy(state->mutex);
+
+    FreeExporterFolders(state);
+    free((void*)state->exporter_path);
 
     return true;
 }
@@ -231,12 +236,12 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
     }
 }
 
-extern const char* TEST_EXPORTER_PATH;
-
 int main(int argc, char* argv[])
 {
     AppState state;
     memset(&state, 0, sizeof(state));
+
+    UpdateExporterFolders(&state);
 
     state.mutex = MutexCreate();
 
@@ -245,6 +250,7 @@ int main(int argc, char* argv[])
 
     if (argc > 1)
     {
+        // TODO: Replace with a load command, in order to move the loading code into one place
         state.path = argv[argc-1];
         state.project = apLoadProjectFromPath(state.path);
 
@@ -252,17 +258,28 @@ int main(int argc, char* argv[])
 
         if (!state.project)
         {
-            fprintf(stderr, "Failed to read prooject from %s\n", state.path);
+            fprintf(stderr, "Failed to read project from %s\n", state.path);
             state.project = apLoadProjectFromMemory("untitled", 0);
         }
         else
         {
-            if (!apExportUpdateOptions(state.project, TEST_EXPORTER_PATH))
+            char path[PATH_MAX];
+            const char* exporter = FindExporter(&state, state.project->exporter, path, sizeof(path));
+            if (exporter)
             {
+                state.exporter_path = strdup(exporter);
 
+                if (!apExportUpdateOptions(state.project, state.exporter_path))
+                {
+
+                }
+
+                state.project->exporter_defaults = apExportGetDefaultOptions(state.project, state.exporter_path);
             }
-
-            state.project->exporter_defaults = apExportGetDefaultOptions(state.project, TEST_EXPORTER_PATH);
+            else
+            {
+                fprintf(stderr, "Failed to find exporter '%s/exporter.lua'\n", state.project->exporter);
+            }
 
             // verbose
             apDebugPrintProject(state.project);

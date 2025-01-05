@@ -3,9 +3,17 @@
 // @2021-@2024 Mathias Westerdahl
 
 #include "state.h"
+#include "sys.h"
+
+#include <stdio.h> // printf
+#include <limits.h> // PATH_MAX
 
 #include <sokol_gfx.h>
 #include <sokol_imgui.h>
+
+extern "C" {
+    #include <atlaspacker/file.h>
+}
 
 // ****************************************************************************************
 
@@ -184,3 +192,53 @@ void CreateAtlasTextures(AppState* state)
     state->num_pages = 0;
 }
 
+// ****************************************************************************************
+
+void AddExporterFolder(AppState* state, const char* folder)
+{
+    if (!IsDir(folder))
+        return;
+
+    if (state->exporter_folders.Full())
+        state->exporter_folders.SetCapacity(state->exporter_folders.Capacity()+1);
+    state->exporter_folders.Push(strdup(folder));
+
+    printf("EXPORTER FOLDER: '%s'\n", folder);
+}
+
+void UpdateExporterFolders(AppState* state)
+{
+    char path[PATH_MAX] = "";
+    if (GetApplicationPath(path, sizeof(path)))
+    {
+        AddExporterFolder(state, path);
+    }
+
+    if (GetWorkingDir(path, sizeof(path)))
+    {
+        AddExporterFolder(state, path);
+    }
+
+    GetEnvVarDirs("AP_EXPORTER_DIRS", (void (*)(void*, const char*))AddExporterFolder, state);
+}
+
+void FreeExporterFolders(AppState* state)
+{
+    for (uint32_t i = 0; i < state->exporter_folders.Size(); ++i)
+    {
+        free((void*)state->exporter_folders[i]);
+    }
+    state->exporter_folders.SetSize(0);
+}
+
+const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size)
+{
+    for (uint32_t i = 0; i < state->exporter_folders.Size(); ++i)
+    {
+        const char* folder = state->exporter_folders[i];
+        snprintf(buffer, buffer_size, "%s/%s/exporter.lua", folder, exporter);
+        if (IsFile(buffer))
+            return buffer;
+    }
+    return 0;
+}

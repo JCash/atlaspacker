@@ -67,6 +67,7 @@ compile_cxx_file tool/state.cpp
 compile_cxx_file tool/thread.cpp
 compile_cxx_file tool/tree.cpp
 compile_cxx_file tool/worker.cpp
+compile_objcxx_file tool/sys.cpp
 compile_objcxx_file tool/editor.cpp
 
 run_cmd ${LD} -o ${BUILD_DIR}/${PRODUCT} \
