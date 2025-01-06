@@ -202,8 +202,6 @@ void AddExporterFolder(AppState* state, const char* folder)
     if (state->exporter_folders.Full())
         state->exporter_folders.SetCapacity(state->exporter_folders.Capacity()+1);
     state->exporter_folders.Push(strdup(folder));
-
-    printf("EXPORTER FOLDER: '%s'\n", folder);
 }
 
 void UpdateExporterFolders(AppState* state)

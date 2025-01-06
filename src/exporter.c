@@ -509,6 +509,60 @@ static int PPrintTable(lua_State* L, int index, int indent)
     return 0;
 }
 
+static int PPrint(lua_State* L)
+{
+    int n = lua_gettop(L);
+    for (int s = 1; s <= n; ++s)
+    {
+        if (lua_type(L, s) == LUA_TTABLE)
+        {
+            if (s == 1)
+            {
+                printf("\n");
+            }
+            PPrintTable(L, s, 0);
+            printf("%s", (n > s) ? ",\n" : "");
+        }
+        else
+        {
+            const char* value_str = PushValueAsString(L, s);
+            if (value_str == 0x0)
+            {
+                return luaL_error(L, "tostring must return a string to print");
+            }
+            printf("%s%s", value_str, (n > s) ? ",\n" : "");
+            lua_pop(L, 1);
+        }
+    }
+    return 0;
+}
+
+static int Print(lua_State* L)
+{
+    int n = lua_gettop(L);
+    lua_getglobal(L, "tostring");
+    char buffer[2048];
+    buffer[0] = 0;
+    for (int i = 1; i <= n; ++i)
+    {
+        const char *s;
+        lua_pushvalue(L, -1);
+        lua_pushvalue(L, i);
+        lua_call(L, 1, 1);
+        s = lua_tostring(L, -1);
+        if (s == 0x0)
+            return luaL_error(L, "tostring must return a string to xprint");
+        if (i > 1)
+            strlcat(buffer, "\t", sizeof(buffer));
+        strlcat(buffer, s, sizeof(buffer));
+        lua_pop(L, 1);
+    }
+    printf("%s\n", buffer);
+    lua_pop(L, 1);
+    assert(n == lua_gettop(L));
+    return 0;
+}
+
 // From ldblib.c (getthread)
 static lua_State* GetLuaThread(lua_State *L, int *arg)
 {
@@ -766,6 +820,9 @@ static lua_State* CreateLuaState()
 {
     lua_State* L = luaL_newstate(); // We prefer to start with a clean slate
     luaL_openlibs(L);
+
+    lua_register(L, "print", Print);
+    lua_register(L, "pprint", PPrint);
 
     return L;
 }
