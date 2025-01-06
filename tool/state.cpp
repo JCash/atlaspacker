@@ -208,6 +208,9 @@ void AddExporterFolder(AppState* state, const char* folder)
 
 void UpdateExporterFolders(AppState* state)
 {
+    // If set, let's priotiize them
+    GetEnvVarDirs("AP_EXPORTER_DIRS", (void (*)(void*, const char*))AddExporterFolder, state);
+
     char path[PATH_MAX] = "";
     if (GetApplicationPath(path, sizeof(path)))
     {
@@ -218,8 +221,6 @@ void UpdateExporterFolders(AppState* state)
     {
         AddExporterFolder(state, path);
     }
-
-    GetEnvVarDirs("AP_EXPORTER_DIRS", (void (*)(void*, const char*))AddExporterFolder, state);
 }
 
 void FreeExporterFolders(AppState* state)
@@ -241,4 +242,26 @@ const char* FindExporter(AppState* state, const char* exporter, char* buffer, ui
             return buffer;
     }
     return 0;
+}
+
+// ****************************************************************************************
+Preferences* CreatePreferences()
+{
+    Preferences* prefs = new Preferences;
+    return prefs;
+}
+
+void DestroyPreferences(Preferences* prefs)
+{
+    delete prefs;
+}
+
+Preferences* LoadPreferences(const char* path)
+{
+    return 0;
+}
+
+bool SavePreferences(const char* path, Preferences* prefs)
+{
+    return false;
 }

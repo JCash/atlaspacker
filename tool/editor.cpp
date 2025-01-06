@@ -240,6 +240,8 @@ int main(int argc, char* argv[])
 {
     AppState state;
     memset(&state, 0, sizeof(state));
+    // TODO: Make a constructor!
+    state.selected_exporter_folder = -1;
 
     UpdateExporterFolders(&state);
 
@@ -247,6 +249,9 @@ int main(int argc, char* argv[])
 
     state.thread = WorkerCreate();
     state.uithread = WorkerCreateNoThread();
+
+    state.prefs = CreatePreferences();
+    state.show_preferences = true; // Until we have a "close" button on the tabs
 
     if (argc > 1)
     {

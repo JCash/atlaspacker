@@ -472,6 +472,92 @@ static void DrawAtlasPages(AppState* state)
     ImGui::EndChild();
 }
 
+static void DrawPreferences(AppState* state)
+{
+    if (!state->prefs)
+        return;
+
+    Preferences* prefs = state->prefs;
+    ImGui::Separator();
+
+    ImGuiTableFlags table_flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
+    if (ImGui::BeginListBox("Exporter Folders"))
+    {
+        for (int i = prefs->exporter_folders.Size()-1; i >= 0; i--)
+        {
+            const char* folder = prefs->exporter_folders[i];
+            bool selected = state->selected_exporter_folder == i;
+            if (ImGui::Selectable(folder, &selected))
+            {
+                state->selected_exporter_folder = i;
+            }
+        }
+
+        ImGui::BeginDisabled();
+        for (int i = 0; i < state->exporter_folders.Size(); ++i)
+        {
+            const char* folder = state->exporter_folders[i];
+            ImGui::Text(folder);
+        }
+        ImGui::EndDisabled();
+
+        ImGui::EndListBox();
+    }
+
+    ImGui::Separator();
+    ImGui::Indent(16);
+
+    bool disabled = false;
+    {
+        SCOPED_MUTEX(state->mutex);
+        disabled = state->modal_dialog != 0;
+    }
+
+    ImGui::BeginDisabled(disabled);
+
+        if (ImGui::Button("Add Folder"))
+        {
+            // See comment below
+        }
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+        {
+            // macOS: Since the file dialog mustn't be opened in the
+            // scope of a sokol frame, we need to delay it.
+            // And since the ImGui::Button() reacts on mouse UP, and the Sokol
+            // on_event callback happends before this, we need to start the process on
+            // a left click
+            CommandFolderOpen(state->uithread, state, [](void* _ctx, const char* path) {
+                AppState* ctx = (AppState*)_ctx;
+                if (ctx->prefs->exporter_folders.Full())
+                    ctx->prefs->exporter_folders.SetCapacity(ctx->prefs->exporter_folders.Capacity()+1);
+                ctx->prefs->exporter_folders.Push(strdup(path));
+            }, (void*)state);
+        }
+
+    ImGui::EndDisabled();
+
+    ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
+
+    ImGui::BeginDisabled(disabled || (state->selected_exporter_folder == -1));
+
+        if (ImGui::Button("Remove Folder"))
+        {
+            if (state->selected_exporter_folder != -1)
+            {
+                prefs->exporter_folders.Erase(state->selected_exporter_folder);
+                state->selected_exporter_folder = -1;
+            }
+        }
+
+    ImGui::EndDisabled();
+
+    ImGui::NewLine();
+
+    // ImGui::BeginDisabled(true);
+    //     ImGui::Text("Path: %s", project_path);
+    // ImGui::EndDisabled();
+}
+
 static bool DrawOption(apOptionValue* option, apOptionValue* base)
 {
     if (!base)
@@ -762,10 +848,19 @@ void DrawEditor(AppState* state, int width, int height)
     ImGui::Begin("#textures");
         if (ImGui::BeginTabBar("#textures_tabs"))
         {
-            if (ImGui::BeginTabItem("#pages", 0, ImGuiTabItemFlags_None))
+            if (ImGui::BeginTabItem("Pages", 0, ImGuiTabItemFlags_None))
             {
                 DrawAtlasPages(state);
                 ImGui::EndTabItem();
+            }
+
+            if (state->show_preferences)
+            {
+                if (ImGui::BeginTabItem("Preferences", 0, ImGuiTabItemFlags_None))
+                {
+                    DrawPreferences(state);
+                    ImGui::EndTabItem();
+                }
             }
 
             ImGui::EndTabBar();

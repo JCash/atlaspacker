@@ -304,5 +304,5 @@ static void LoadImages_Finished(int result, void* _ctx)
 
 void CommandLoadImages(HWorker worker, AppState* state)
 {
-    WorkerPushJob(state->thread, LoadImages_Process, LoadImages_Finished, (void*)state);
+    WorkerPushJob(worker, LoadImages_Process, LoadImages_Finished, (void*)state);
 }

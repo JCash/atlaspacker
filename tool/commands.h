@@ -23,6 +23,7 @@ void CommandProjectFileExport(HWorker worker, AppState* state);
 void CommandAddImageFile(HWorker worker, AppState* state);
 void CommandAddImageFolder(HWorker worker, AppState* state);
 
+void CommandFolderOpen(HWorker worker, AppState* state, void (*callback)(void* ctx, const char*), void* ctx);
 
 // Parallel jobs for the worker thread
 void CommandRecreateAtlas(HWorker worker, AppState* state);

@@ -75,7 +75,9 @@ public:
     void        Push(const T& item);
     /// Removes (and returns) the last item from the array. Asserts if the array is empty
     T           Pop();
-    /// Removes one item by swapping in from the back.  Asserts if the index is out of range
+    /// Removes one item and moves rest of items one step left. Asserts if the index is out of range
+    void        Erase(size_t index);
+    /// Removes one item by swapping in from the back. Asserts if the index is out of range
     void        EraseSwap(size_t index);
     /// Returns the first item in the array
     T&          First()                         { assert(!Empty()); return *m_Start; }
@@ -137,5 +139,17 @@ void Array<T>::EraseSwap(size_t index)
     assert(index < Size());
     m_Start[index] = *(--m_End);
 }
+
+template <typename T>
+void Array<T>::Erase(size_t index)
+{
+    assert(index < Size());
+    T* current = &m_Start[index];
+    T* next = current+1;
+    T* end = m_End--;
+    size_t num_to_move = end - next;
+    memmove(current, next, num_to_move * sizeof(T));
+}
+
 
 } // namespace

@@ -36,6 +36,12 @@ static const char* VERSION = "0.1";
 
 typedef void (*FileDialogCallbackFn)(struct AppState* state, const char** paths, int num_paths);
 
+// User configurable settings
+struct Preferences
+{
+    jc::Array<const char*> exporter_folders; // where to look for the exporters
+};
+
 struct AppState
 {
     const char* path;
@@ -80,10 +86,17 @@ struct AppState
     bool        debug_draw_triangles;
 
     // ***************************************************************************
-    // Editor settings
+    // Editor preferences
 
-    jc::Array<const char*> exporter_folders; // where to look for the exporters
-    const char*            exporter_path;    // The currently selected exporter
+    bool show_preferences;
+
+    // Defaults / read only
+    jc::Array<const char*>  exporter_folders; // where to look for the exporters (builtin)
+    const char*             exporter_path;    // The currently selected exporter
+
+    int                     selected_exporter_folder; // -1 if none selected
+
+    Preferences* prefs;
 };
 
 // ****************************************************************************************
@@ -117,3 +130,10 @@ void FreeExporterFolders(AppState* state);
 
 // Find an exporter using a base name `name.lua` (i.e. without the suffix)
 const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size);
+
+// ****************************************************************************************
+// Preferences
+Preferences* CreatePreferences();
+void         DestroyPreferences(Preferences* prefs);
+Preferences* LoadPreferences(const char* path);
+bool         SavePreferences(const char* path, Preferences* prefs);

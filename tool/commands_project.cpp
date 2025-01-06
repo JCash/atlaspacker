@@ -201,13 +201,13 @@ static int ImageFileOpen_Process(void* _ctx)
         }
     }
 
-    ctx->paths = (const char**)malloc(sizeof(char**)*ctx->num_paths);
-    ctx->paths[0] = (const char*)outpath;
-
     SetModalDialog(state, 0);
 
-    SCOPED_MUTEX(state->mutex);
-    state->modal_dialog = 0;
+    if (NFD_OKAY == result)
+    {
+        ctx->paths = (const char**)malloc(sizeof(char**)*ctx->num_paths);
+        ctx->paths[0] = (const char*)outpath;
+    }
 
     return NFD_OKAY == result ? RESULT_OK : RESULT_FAILED;
 }
@@ -296,5 +296,91 @@ static void ProjectFileExport_Finished(int result, void* _ctx)
 
 void CommandProjectFileExport(HWorker worker, AppState* state)
 {
-    WorkerPushJob(state->thread, ProjectFileExport_Process, ProjectFileExport_Finished, (void*)state);
+    WorkerPushJob(worker, ProjectFileExport_Process, ProjectFileExport_Finished, (void*)state);
+}
+
+// ************************************************************************************
+// Open a folder
+
+struct FolderOpenContext
+{
+    AppState*   state;
+    const char* extensions;
+    bool        folder_only;
+
+    // out
+    const char** paths;
+    int          num_paths;
+
+    void*       callback_ctx;
+    void        (*callback)(void* ctx, const char*);
+};
+
+// Called on worker thread
+static int FolderOpen_Process(void* _ctx)
+{
+    FolderOpenContext* ctx = (FolderOpenContext*)_ctx;
+    AppState* state = ctx->state;
+    ctx->num_paths = 0;
+
+    SetModalDialog(state, 1);
+
+    nfdresult_t result;
+    nfdchar_t* outpath = 0;
+
+    if (ctx->folder_only)
+    {
+        result = NFD_PickFolder(0, &outpath);
+        if (NFD_OKAY == result)
+        {
+            ctx->num_paths = 1;
+        }
+    }
+    else
+    {
+        // TODO: USE NFD_OpenDialogMultiple to open multiple files!
+        result = NFD_OpenDialog(ctx->extensions, 0, &outpath);
+        if (NFD_OKAY == result)
+        {
+            ctx->num_paths = 1;
+        }
+    }
+
+    SetModalDialog(state, 0);
+
+    if (NFD_OKAY == result)
+    {
+        ctx->paths = (const char**)malloc(sizeof(char**)*ctx->num_paths);
+        ctx->paths[0] = (const char*)outpath;
+    }
+
+    return NFD_OKAY == result ? RESULT_OK : RESULT_FAILED;
+}
+
+// Called on main thread
+static void FolderOpen_Finished(int result, void* _ctx)
+{
+    FolderOpenContext* ctx = (FolderOpenContext*)_ctx;
+    AppState* state = ctx->state;
+
+    if (RESULT_OK == result)
+    {
+        ctx->callback(ctx->callback_ctx, ctx->paths[0]);
+    }
+
+    for (int i = 0; i < ctx->num_paths; ++i)
+        free((void*)ctx->paths[i]);
+    free((void*)ctx->paths);
+    delete ctx;
+}
+
+void CommandFolderOpen(HWorker worker, AppState* state, void (*callback)(void* ctx, const char*), void* callback_ctx)
+{
+    FolderOpenContext* ctx = new FolderOpenContext;
+    ctx->state       = state;
+    ctx->folder_only = true;
+    ctx->extensions  = 0;
+    ctx->callback    = callback;
+    ctx->callback_ctx= callback_ctx;
+    WorkerPushJob(worker, FolderOpen_Process, FolderOpen_Finished, (void*)ctx);
 }
