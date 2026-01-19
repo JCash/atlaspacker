@@ -22,35 +22,35 @@ fi
 
 #OPT="-O0 -g"
 FLAGS="-Iinclude -I. -I${SOKOL_DIR} -I${SOKOL_DIR}/util -I${IMGUI_DIR} -I${NFD_DIR} -I${LUA_DIR} -I${XXHASH_DIR}"
-CFLAGS="${CFLAGS} ${FLAGS}"
-CXXFLAGS="${CXXFLAGS} ${FLAGS}"
+CFLAGS="${CFLAGS} ${FLAGS} ${SOKOL_DEFINES}"
+CXXFLAGS="${CXXFLAGS} ${FLAGS} ${SOKOL_DEFINES}"
 
 function compile_c_file {
     local name=$1
     local basename=$(basename $name)
     echo "$basename"
-    run_cmd ${CC} -o ${BUILD_DIR}/${basename}.o ${OPT} $DISASSEMBLY ${ARCH} ${CFLAGS} ${SOKOL_DEFINES} -I${SOKOL_DIR} -c ${name}
+    run_cmd ${CC} -o ${BUILD_DIR}/${basename}.o ${OPT} $DISASSEMBLY ${ARCH} ${CFLAGS} -c ${name}
 }
 
 function compile_cxx_file {
     local name=$1
     local basename=$(basename $name)
     echo "$basename"
-    run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} ${SOKOL_DEFINES} -I${SOKOL_DIR} -c ${name}
+    run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} -c ${name}
 }
 
 function compile_objc_file {
     local name=$1
     local basename=$(basename $name)
     echo "$basename"
-    run_cmd ${CC} -o ${BUILD_DIR}/${basename}.o -ObjC ${OPT} $DISASSEMBLY ${ARCH} ${CFLAGS} ${SOKOL_DEFINES} -c ${name}
+    run_cmd ${CC} -o ${BUILD_DIR}/${basename}.o -ObjC ${OPT} $DISASSEMBLY ${ARCH} ${CFLAGS} -c ${name}
 }
 
 function compile_objcxx_file {
     local name=$1
     local basename=$(basename $name)
     echo "$basename"
-    run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o -ObjC++ ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} ${SOKOL_DEFINES} -c ${name}
+    run_cmd ${CXX} -o ${BUILD_DIR}/${basename}.o -ObjC++ ${OPT} $DISASSEMBLY ${ARCH} ${CXXFLAGS} -c ${name}
 }
 
 if [ -f ${BUILD_DIR}/${PRODUCT} ]; then

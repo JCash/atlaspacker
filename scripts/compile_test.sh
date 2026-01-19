@@ -7,8 +7,8 @@ source ${SCRIPTDIR}/compile.sh
 
 PREFIX=testpacker
 
-export CFLAGS="${CFLAGS} -Iinclude -DJC_TEST_USE_COLORS"
-export CXXFLAGS="${CXXFLAGS} -Iinclude -DJC_TEST_USE_COLORS"
+export CFLAGS="${CFLAGS} -Iinclude -Iexternal -DJC_TEST_USE_COLORS"
+export CXXFLAGS="${CXXFLAGS} -Iinclude -Iexternal -DJC_TEST_USE_COLORS"
 
 NAME=utils
 compile_c_file test/render.c test${NAME}

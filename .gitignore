@@ -56,6 +56,7 @@ build/**
 image*.png
 image*.tga
 
-./external/repos
+/external/repos/**
 
 **/.DS_Store
+.vscode/**
