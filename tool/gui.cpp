@@ -6,7 +6,15 @@
 #include "commands.h"
 #include "state.h"
 
+extern "C" {
+    #include <atlaspacker/exporter.h>
+    #include <atlaspacker/file.h>
+}
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <limits.h>
 
 #include <imgui.h>
 #include <imgui_internal.h> // Until the dock builder API is stable
@@ -67,6 +75,125 @@ static void ShowToolTipImage(AppState* state, TreeNode* node)
     }
 
     ImGui::EndTooltip();
+}
+
+static void SetActiveExporter(AppState* state, apProject* project, const char* exporter_name)
+{
+    if (!exporter_name || !*exporter_name)
+        return;
+
+    if (project->exporter && strcmp(project->exporter, exporter_name) == 0 && project->exporter_defaults)
+        return;
+
+    free((void*)project->exporter);
+    project->exporter = strdup(exporter_name);
+
+    apDestroyOptions(project->exporter_options);
+    project->exporter_options = 0;
+    apDestroyOptions(project->exporter_defaults);
+    project->exporter_defaults = 0;
+
+    free((void*)state->exporter_path);
+    state->exporter_path = 0;
+
+    char path[PATH_MAX];
+    const char* exporter_path = FindExporter(state, exporter_name, path, sizeof(path));
+    if (exporter_path)
+    {
+        state->exporter_path = strdup(exporter_path);
+        project->exporter_defaults = apExportGetDefaultOptions(project, state->exporter_path);
+    }
+    else
+    {
+        fprintf(stderr, "Failed to find exporter '%s/exporter.lua'\n", exporter_name);
+    }
+}
+
+struct ExporterListContext
+{
+    jc::Array<const char*>* names;
+};
+
+static void FreeExporterNames(jc::Array<const char*>& names)
+{
+    for (size_t i = 0; i < names.Size(); ++i)
+        free((void*)names[i]);
+    names.SetSize(0);
+}
+
+static bool HasExporterName(const jc::Array<const char*>& names, const char* name)
+{
+    for (size_t i = 0; i < names.Size(); ++i)
+    {
+        if (strcmp(names[i], name) == 0)
+            return true;
+    }
+    return false;
+}
+
+static void AddExporterName(jc::Array<const char*>& names, char* name)
+{
+    if (!name || !*name)
+    {
+        free(name);
+        return;
+    }
+
+    if (HasExporterName(names, name))
+    {
+        free(name);
+        return;
+    }
+
+    if (names.Full())
+        names.SetCapacity(names.Capacity() + 1);
+    names.Push(name);
+}
+
+static int ExporterFileIterator(void* _ctx, const char* path)
+{
+    ExporterListContext* ctx = (ExporterListContext*)_ctx;
+    const char* basename = strrchr(path, '/');
+    basename = basename ? (basename + 1) : path;
+    if (strcmp(basename, "exporter.lua") != 0)
+        return 1;
+
+    const char* dir_end = basename - 1;
+    if (dir_end <= path)
+        return 1;
+
+    const char* dir_start = dir_end;
+    while (dir_start > path && *(dir_start - 1) != '/')
+        dir_start--;
+
+    size_t len = (size_t)(dir_end - dir_start);
+    if (len == 0)
+        return 1;
+
+    char* name = (char*)malloc(len + 1);
+    memcpy(name, dir_start, len);
+    name[len] = 0;
+    AddExporterName(*ctx->names, name);
+    return 1;
+}
+
+static void CollectExporters(AppState* state, jc::Array<const char*>& names)
+{
+    ExporterListContext ctx = {};
+    ctx.names = &names;
+    for (uint32_t i = 0; i < state->exporter_folders.Size(); ++i)
+    {
+        if (IsDir(state->exporter_folders[i]))
+            IterateFiles(state->exporter_folders[i], 1, ExporterFileIterator, &ctx);
+    }
+    if (state->prefs)
+    {
+        for (uint32_t i = 0; i < state->prefs->exporter_folders.Size(); ++i)
+        {
+            if (IsDir(state->prefs->exporter_folders[i]))
+                IterateFiles(state->prefs->exporter_folders[i], 1, ExporterFileIterator, &ctx);
+        }
+    }
 }
 
 
@@ -697,14 +824,14 @@ static void DrawExporterOptions(AppState* state)
 
     ImGui::Separator();
 
-    // TODO: Find a list of valid exporters
-    const char* exporter_names[] = {"Defold"};
-    int num_exporter_names = sizeof(exporter_names)/sizeof(exporter_names[0]);
+    jc::Array<const char*> exporter_names;
+    CollectExporters(state, exporter_names);
+    int num_exporter_names = (int)exporter_names.Size();
 
     const char* current_exporter = project->exporter;
     int exporter_name_index = 0;
 
-    if (current_exporter)
+    if (current_exporter && num_exporter_names > 0)
     {
         for (exporter_name_index = 0; exporter_name_index < num_exporter_names; ++exporter_name_index)
         {
@@ -713,18 +840,23 @@ static void DrawExporterOptions(AppState* state)
         }
     }
 
-    if (ImGui::Combo("Exporter", &exporter_name_index, exporter_names, num_exporter_names, 0))
+    if (num_exporter_names == 0)
     {
-        free((void*)project->exporter);
-        project->exporter = strdup(exporter_names[exporter_name_index]);
+        ImGui::TextDisabled("No exporters found");
     }
+    else if (ImGui::Combo("Exporter", &exporter_name_index, exporter_names.Begin(), num_exporter_names, 0))
+    {
+        SetActiveExporter(state, project, exporter_names[exporter_name_index]);
+    }
+
+    FreeExporterNames(exporter_names);
 
     ImGui::Separator();
 
     ImGui::Text("Exporter Options");
 
     bool dirty = false;
-    if (project->exporter_options)
+    if (project->exporter_defaults)
     {
         dirty |= DrawOptions(project->exporter_options, project->exporter_defaults);
     }

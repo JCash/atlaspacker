@@ -237,6 +237,16 @@ void FreeExporterFolders(AppState* state)
 
 const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size)
 {
+    if (state->prefs)
+    {
+        for (uint32_t i = 0; i < state->prefs->exporter_folders.Size(); ++i)
+        {
+            const char* folder = state->prefs->exporter_folders[i];
+            snprintf(buffer, buffer_size, "%s/%s/exporter.lua", folder, exporter);
+            if (IsFile(buffer))
+                return buffer;
+        }
+    }
     for (uint32_t i = 0; i < state->exporter_folders.Size(); ++i)
     {
         const char* folder = state->exporter_folders[i];

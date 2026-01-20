@@ -1,4 +1,4 @@
-print("DEFOLD EXPORTER MODULE IMPORTED!")
+print("DEFOLD DEFAULT EXPORTER MODULE IMPORTED!")
 
 -- function printtable(tbl, indent)
 --   if not indent then indent = 0 end
@@ -41,8 +41,8 @@ function get_defaults()
         get_default('atlas_file')
     }
 
-    print("Testing")
-    pprint("DEFAULTS", defaults)
+    -- print("Testing")
+    -- pprint("DEFAULTS", defaults)
     return defaults
 end
 
