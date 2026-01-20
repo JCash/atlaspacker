@@ -1,4 +1,4 @@
-print("DEFOLD EXPORTER MODULE IMPORTED!")
+print("DEFOLD EXAMPLE EXPORTER MODULE IMPORTED!")
 
 function printtable(tbl, indent)
   if not indent then indent = 0 end

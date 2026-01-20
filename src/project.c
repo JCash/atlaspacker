@@ -222,10 +222,7 @@ apProject* apLoadProjectFromMemory(const char* path, void* data)
 	}
 
 	apProject* p = (apProject*)malloc(sizeof(apProject));
-	p->packer = 0;
-	p->context = 0;
-    p->exporter = 0;
-    p->exporter_options = 0;
+	memset(p, 0, sizeof(*p));
 
     apSetDefaultOptions(&p->options);
     apTilePackerSetDefaultOptions(&p->options_tp);

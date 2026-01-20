@@ -197,7 +197,10 @@ void CreateAtlasTextures(AppState* state)
 void AddExporterFolder(AppState* state, const char* folder)
 {
     if (!IsDir(folder))
+    {
+        // LOG ERROR: printf("Path is not a folder: '%s'\n", folder);
         return;
+    }
 
     if (state->exporter_folders.Full())
         state->exporter_folders.SetCapacity(state->exporter_folders.Capacity()+1);
@@ -208,6 +211,8 @@ void UpdateExporterFolders(AppState* state)
 {
     // If set, let's priotiize them
     GetEnvVarDirs("AP_EXPORTER_DIRS", (void (*)(void*, const char*))AddExporterFolder, state);
+
+    AddExporterFolder(state, "./exporters");
 
     char path[PATH_MAX] = "";
     if (GetApplicationPath(path, sizeof(path)))
