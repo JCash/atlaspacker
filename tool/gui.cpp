@@ -621,6 +621,7 @@ static void DrawAtlasPages(AppState* state)
         ImGui::Image(state->page_textures[i]->texture_id, size, uv0, uv1);
 
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        draw_list->AddRect(start_pos, ImVec2(start_pos.x + size.x, start_pos.y + size.y), 0xFF7F7F7F, 0.0f, 0, 1.0f);
 
         ImVec2 pos = start_pos;
         pos.x += size.x * 0.5f;
