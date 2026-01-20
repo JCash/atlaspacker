@@ -235,6 +235,21 @@ void FreeExporterFolders(AppState* state)
     state->exporter_folders.SetSize(0);
 }
 
+void ClearExporterOptionCache(AppState* state)
+{
+    if (state->exporter_options_cache.Capacity() == 0)
+        return;
+
+    for (jc::HashTable<hash_t, apOptionValue*>::Iterator it = state->exporter_options_cache.Begin();
+         it != state->exporter_options_cache.End();
+         ++it)
+    {
+        apOptionValue* options = *it.GetValue();
+        apDestroyOptions(options);
+    }
+    state->exporter_options_cache.Clear();
+}
+
 const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size)
 {
     if (state->prefs)

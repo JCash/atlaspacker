@@ -77,19 +77,97 @@ static void ShowToolTipImage(AppState* state, TreeNode* node)
     ImGui::EndTooltip();
 }
 
+static apOptionValue* CloneOptionList(const apOptionValue* src)
+{
+    apOptionValue* head = 0;
+    apOptionValue* tail = 0;
+    while (src)
+    {
+        apOptionValue* option = (apOptionValue*)malloc(sizeof(apOptionValue));
+        memset(option, 0, sizeof(*option));
+
+        option->type = src->type;
+        option->name = src->name ? strdup(src->name) : 0;
+        option->edit = src->edit ? strdup(src->edit) : 0;
+        option->desc = src->desc ? strdup(src->desc) : 0;
+        option->display = src->display ? strdup(src->display) : 0;
+        if (src->type == OVT_STRING)
+        {
+            option->value.string = src->value.string ? strdup(src->value.string) : 0;
+        }
+        else
+        {
+            option->value.number = src->value.number;
+        }
+
+        if (!head)
+            head = option;
+        else
+            tail->next = option;
+        tail = option;
+        src = src->next;
+    }
+    return head;
+}
+
+static void CacheExporterOptions(AppState* state, const char* exporter_name, apOptionValue* options)
+{
+    if (!exporter_name || !options)
+        return;
+
+    hash_t key = Hash(exporter_name);
+    apOptionValue** existing = state->exporter_options_cache.Get(key);
+    if (existing)
+    {
+        apDestroyOptions(*existing);
+        state->exporter_options_cache.Erase(key);
+    }
+
+    if (state->exporter_options_cache.Full())
+    {
+        uint32_t cap = state->exporter_options_cache.Capacity();
+        state->exporter_options_cache.SetCapacity(cap ? (cap + 8) : 8);
+    }
+
+    state->exporter_options_cache.Put(key, options);
+}
+
+static apOptionValue* TakeCachedExporterOptions(AppState* state, const char* exporter_name)
+{
+    if (!exporter_name)
+        return 0;
+
+    hash_t key = Hash(exporter_name);
+    apOptionValue** cached = state->exporter_options_cache.Get(key);
+    if (!cached)
+        return 0;
+
+    apOptionValue* options = *cached;
+    state->exporter_options_cache.Erase(key);
+    return options;
+}
+
 static void SetActiveExporter(AppState* state, apProject* project, const char* exporter_name)
 {
     if (!exporter_name || !*exporter_name)
         return;
 
-    if (project->exporter && strcmp(project->exporter, exporter_name) == 0 && project->exporter_defaults)
+    bool same_exporter = project->exporter && strcmp(project->exporter, exporter_name) == 0;
+    if (same_exporter && project->exporter_defaults && project->exporter_options)
         return;
 
-    free((void*)project->exporter);
-    project->exporter = strdup(exporter_name);
+    if (!same_exporter && project->exporter_options)
+    {
+        CacheExporterOptions(state, project->exporter, project->exporter_options);
+        project->exporter_options = 0;
+    }
 
-    apDestroyOptions(project->exporter_options);
-    project->exporter_options = 0;
+    if (!same_exporter)
+    {
+        free((void*)project->exporter);
+        project->exporter = strdup(exporter_name);
+    }
+
     apDestroyOptions(project->exporter_defaults);
     project->exporter_defaults = 0;
 
@@ -106,6 +184,16 @@ static void SetActiveExporter(AppState* state, apProject* project, const char* e
     else
     {
         fprintf(stderr, "Failed to find exporter '%s/exporter.lua'\n", exporter_name);
+    }
+
+    if (!same_exporter)
+    {
+        project->exporter_options = TakeCachedExporterOptions(state, exporter_name);
+    }
+
+    if (!project->exporter_options && project->exporter_defaults)
+    {
+        project->exporter_options = CloneOptionList(project->exporter_defaults);
     }
 }
 

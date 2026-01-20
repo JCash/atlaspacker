@@ -102,6 +102,7 @@ struct AppState
     // Defaults / read only
     jc::Array<const char*>  exporter_folders; // where to look for the exporters (builtin)
     const char*             exporter_path;    // The currently selected exporter
+    jc::HashTable<hash_t, apOptionValue*> exporter_options_cache;
 
     int                     selected_exporter_folder; // -1 if none selected
 
@@ -136,6 +137,7 @@ void CreateAtlasTextures(AppState* state);
 void AddExporterFolder(AppState* state, const char* folder);
 void UpdateExporterFolders(AppState* state);
 void FreeExporterFolders(AppState* state);
+void ClearExporterOptionCache(AppState* state);
 
 // Find an exporter using a base name `name.lua` (i.e. without the suffix)
 const char* FindExporter(AppState* state, const char* exporter, char* buffer, uint32_t buffer_size);

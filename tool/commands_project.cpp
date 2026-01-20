@@ -75,6 +75,7 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
 
             if (state->project)
                 apDestroyProject(state->project);
+            ClearExporterOptionCache(state);
 
             SCOPED_MUTEX(state->mutex);
             state->project = project;

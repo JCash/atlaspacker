@@ -101,6 +101,7 @@ static bool Quit(AppState* state)
     MutexDestroy(state->mutex);
 
     FreeExporterFolders(state);
+    ClearExporterOptionCache(state);
     free((void*)state->exporter_path);
 
     return true;
