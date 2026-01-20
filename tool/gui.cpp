@@ -592,7 +592,7 @@ static void DrawAtlasPages(AppState* state)
 
     ImGui::BeginChild("#atlas_texture");
 
-    ImVec2 size = ImGui::GetWindowSize();
+    ImVec2 view_size = ImGui::GetWindowSize();
 
     if (ImGui::IsKeyDown(ImGuiKey_MouseWheelY) && ImGui::IsKeyDown(ImGuiMod_Ctrl))
     {
@@ -604,8 +604,7 @@ static void DrawAtlasPages(AppState* state)
             state->zoom = 3.0f;
     }
 
-    size.x *= state->zoom;
-    size.y *= state->zoom;
+    ImVec2 page_bounds(view_size.x * state->zoom, view_size.y * state->zoom);
 
     for (int i = 0; i < state->page_textures.Size(); ++i)
     {
@@ -613,31 +612,39 @@ static void DrawAtlasPages(AppState* state)
         ImVec2 uv1 = {1,1};
         ImGui::SameLine(0, 0);
 
+        apPage* page = apGetPage(state->project->context, i);
+        if (!page)
+            continue;
+
+        float page_width = (float)page->dimensions.width;
+        float page_height = (float)page->dimensions.height;
+        float scale_x = page_width > 0.0f ? (page_bounds.x / page_width) : 1.0f;
+        float scale_y = page_height > 0.0f ? (page_bounds.y / page_height) : 1.0f;
+        float scale = scale_x < scale_y ? scale_x : scale_y;
+        ImVec2 page_size(page_width * scale, page_height * scale);
+
         ImVec2 start_pos = ImGui::GetCursorScreenPos();
 
         if (state->page_textures[i]->texture_id == 0)
             continue;
 
-        ImGui::Image(state->page_textures[i]->texture_id, size, uv0, uv1);
+        ImGui::Image(state->page_textures[i]->texture_id, page_size, uv0, uv1);
 
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
-        draw_list->AddRect(start_pos, ImVec2(start_pos.x + size.x, start_pos.y + size.y), 0xFF7F7F7F, 0.0f, 0, 1.0f);
+        draw_list->AddRect(start_pos, ImVec2(start_pos.x + page_size.x, start_pos.y + page_size.y), 0xFF7F7F7F, 0.0f, 0, 1.0f);
 
         ImVec2 pos = start_pos;
-        pos.x += size.x * 0.5f;
-        pos.y += size.y * 0.5f;
+        pos.x += page_size.x * 0.5f;
+        pos.y += page_size.y * 0.5f;
 
         ImVec2 b = start_pos;
-        b.x += size.x * 0.75f;
-        b.y += size.y * 0.75f;
+        b.x += page_size.x * 0.75f;
+        b.y += page_size.y * 0.75f;
 
-        apPage* page = apGetPage(state->project->context, i);
-        if (!page)
-            continue;
         apImage* image = apPageGetFirstImage(page);
 
-        float width = (float)page->dimensions.width;
-        float height = (float)page->dimensions.height;
+        float width = page_width;
+        float height = page_height;
         while (image)
         {
             bool do_draw = state->debug_draw_triangles;
@@ -666,10 +673,10 @@ static void DrawAtlasPages(AppState* state)
                     p1.y /= height;
 
                     // convert to window size
-                    p0.x *= size.x;
-                    p0.y *= size.y;
-                    p1.x *= size.x;
-                    p1.y *= size.y;
+                    p0.x *= page_size.x;
+                    p0.y *= page_size.y;
+                    p1.x *= page_size.x;
+                    p1.y *= page_size.y;
 
                     // // Add window start pos
                     p0.x += start_pos.x;
