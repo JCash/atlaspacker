@@ -631,6 +631,8 @@ static void DrawAtlasPages(AppState* state)
         b.y += size.y * 0.75f;
 
         apPage* page = apGetPage(state->project->context, i);
+        if (!page)
+            continue;
         apImage* image = apPageGetFirstImage(page);
 
         float width = (float)page->dimensions.width;
