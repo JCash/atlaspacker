@@ -304,6 +304,53 @@ static int ParseValue(lua_State* L, int index, const char* name, OptionValueType
     return ok;
 }
 
+static apOptionValue* CloneOptionValue(const apOptionValue* src)
+{
+    apOptionValue* option = (apOptionValue*)malloc(sizeof(apOptionValue));
+    memset(option, 0, sizeof(*option));
+
+    option->type = src->type;
+    option->name = src->name ? strdup(src->name) : 0;
+    option->edit = src->edit ? strdup(src->edit) : 0;
+    option->desc = src->desc ? strdup(src->desc) : 0;
+    option->display = src->display ? strdup(src->display) : 0;
+
+    if (src->type == OVT_STRING)
+        option->value.string = src->value.string ? strdup(src->value.string) : 0;
+    else
+        option->value.number = src->value.number;
+
+    return option;
+}
+
+static apOptionValue* FindOptionByName(apOptionValue* options, const char* name)
+{
+    while (options)
+    {
+        if (options->name && strcmp(options->name, name) == 0)
+            return options;
+        options = options->next;
+    }
+    return 0;
+}
+
+static void AppendOption(apOptionValue** head, apOptionValue* option)
+{
+    if (!option)
+        return;
+
+    if (!*head)
+    {
+        *head = option;
+        return;
+    }
+
+    apOptionValue* tail = *head;
+    while (tail->next)
+        tail = tail->next;
+    tail->next = option;
+}
+
 static apOptionValue* ParseOption(lua_State* L, int index)
 {
     const char* name = GetTableString(L, index, "name");
@@ -872,12 +919,24 @@ int apExportUpdateOptions(apProject* project, const char* exporter_path)
     if (!result)
         return 0;
 
+    apOptionValue* original = project->exporter_options;
     apOptionValue* options = LuaUpdateOptions(L, project);
     lua_close(L);
 
     if (options)
     {
-        apDestroyOptions(project->exporter_options);
+        if (original)
+        {
+            for (apOptionValue* opt = original; opt; opt = opt->next)
+            {
+                if (!FindOptionByName(options, opt->name))
+                {
+                    apOptionValue* clone = CloneOptionValue(opt);
+                    AppendOption(&options, clone);
+                }
+            }
+        }
+        apDestroyOptions(original);
         project->exporter_options = options;
     }
 

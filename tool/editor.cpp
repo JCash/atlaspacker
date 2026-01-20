@@ -204,6 +204,11 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
             simgui_handle_event(ev);
         }
     }
+    else if (ev->type == SAPP_EVENTTYPE_KEY_UP)
+    {
+        simgui_handle_event(ev);
+        WorkerUpdate(state->uithread);
+    }
     else if (ev->type == SAPP_EVENTTYPE_QUIT_REQUESTED)
     {
         if (!Quit(state))

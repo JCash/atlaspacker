@@ -156,6 +156,7 @@ static void ProjectFileSave_Finished(int result, void* _ctx)
     {
         SCOPED_MUTEX(state->mutex);
         state->dirty = 0;
+        printf("Wrote project file: %s\n", state->path ? state->path : "(unknown)");
 
         // TODO: Update the window title!
         //UpdateWindowTitle(state, false);

@@ -295,17 +295,20 @@ static void SaveBinPackerOptions(apProject* project, cJSON* packer_options)
     cJSON_AddNumberToObject(packer_options, "no_rotate", project->options_bp.no_rotate);
 }
 
-static void SaveExporterOptions(apProject* project, cJSON* parent)
+static void SaveExporterOptions(apProject* project, cJSON* options)
 {
     apOptionValue* option = project->exporter_options;
     while (option)
     {
-        switch(option->type)
+        cJSON* item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "name", option->name);
+        switch (option->type)
         {
-        case OVT_BOOL:  cJSON_AddBoolToObject(parent, option->name, option->value.number != 0); break;
-        case OVT_NUMBER:cJSON_AddNumberToObject(parent, option->name, option->value.number); break;
-        case OVT_STRING:cJSON_AddStringToObject(parent, option->name, option->value.string); break;
+        case OVT_BOOL:  cJSON_AddBoolToObject(item, "value", option->value.number != 0); break;
+        case OVT_NUMBER:cJSON_AddNumberToObject(item, "value", option->value.number); break;
+        case OVT_STRING:cJSON_AddStringToObject(item, "value", option->value.string); break;
         }
+        cJSON_AddItemToArray(options, item);
         option = option->next;
     }
 }
@@ -355,7 +358,7 @@ int apSaveProject(const char* path, apProject* project)
 
         if (project->exporter_options)
         {
-            cJSON* options = cJSON_AddObjectToObject(exporter, "options");
+            cJSON* options = cJSON_AddArrayToObject(exporter, "options");
             SaveExporterOptions(project, options);
         }
     }
