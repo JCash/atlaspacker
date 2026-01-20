@@ -779,40 +779,85 @@ void DrawEditor(AppState* state, int width, int height)
     {
         if (ImGui::BeginMenu("File"))
         {
-            if (ImGui::MenuItem("Open...", "CTRL+O"))
+            bool open_requested = false;
+            bool open_activated = ImGui::MenuItem("Open...", "CTRL+O");
+            bool open_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+
+            // macOS: Since the file dialog mustn't be opened in the
+            // scope of a sokol frame, we need to delay it.
+            // And since the ImGui::Button() reacts on mouse UP, and the Sokol
+            // on_event callback happens before this, we need to start the process on
+            // a left click
+            if (open_clicked)
             {
-                // macOS: Since the file dialog mustn't be opened in the
-                // scope of a sokol frame, we need to delay it.
-                // And since the ImGui::Button() reacts on mouse UP, and the Sokol
-                // on_event callback happens before this, we need to start the process on
-                // a left click
-                CommandProjectFileOpen(state->uithread, state);
+                state->menu_skip_open_release = 1;
+                open_requested = true;
             }
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            if (open_activated)
             {
-                // macOS: See comment above
+                if (state->menu_skip_open_release)
+                {
+                    state->menu_skip_open_release = 0;
+                }
+                else
+                {
+                    open_requested = true;
+                }
+            }
+            if (open_requested)
+            {
                 CommandProjectFileOpen(state->uithread, state);
             }
 
-            if (ImGui::MenuItem("Save", "CTRL+S"))
+            bool save_requested = false;
+            bool save_activated = ImGui::MenuItem("Save", "CTRL+S");
+            bool save_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+
+            // macOS: See comment above
+            if (save_clicked)
             {
-                // macOS: See comment above
-                CommandProjectFileSave(state->uithread, state);
+                state->menu_skip_save_release = 1;
+                save_requested = true;
             }
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            if (save_activated)
             {
-                // macOS: See comment above
+                if (state->menu_skip_save_release)
+                {
+                    state->menu_skip_save_release = 0;
+                }
+                else
+                {
+                    save_requested = true;
+                }
+            }
+            if (save_requested)
+            {
                 CommandProjectFileSave(state->uithread, state);
             }
 
-            if (ImGui::MenuItem("Export", "CTRL+E"))
+            bool export_requested = false;
+            bool export_activated = ImGui::MenuItem("Export", "CTRL+E");
+            bool export_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+
+            // macOS: See comment above
+            if (export_clicked)
             {
-                // macOS: See comment above
-                CommandProjectFileSave(state->uithread, state);
+                state->menu_skip_export_release = 1;
+                export_requested = true;
             }
-            if (ImGui::IsItemClicked(ImGuiMouseButton_Left))
+            if (export_activated)
             {
-                // macOS: See comment above
+                if (state->menu_skip_export_release)
+                {
+                    state->menu_skip_export_release = 0;
+                }
+                else
+                {
+                    export_requested = true;
+                }
+            }
+            if (export_requested)
+            {
                 CommandProjectFileExport(state->uithread, state);
             }
 

@@ -56,6 +56,15 @@ struct AppState
     int         modal_dialog:1;
     // Changes were made, and the project is dirty
     int         dirty:1;
+    // Avoid double-queueing open dialogs from a single click
+    int         project_open_pending:1;
+    // Avoid double-queueing save/export from a single click
+    int         project_save_pending:1;
+    int         project_export_pending:1;
+    // Skip menu-item mouse-up after already queuing on mouse-down
+    int         menu_skip_open_release:1;
+    int         menu_skip_save_release:1;
+    int         menu_skip_export_release:1;
 
     // // Async state
     int         loading_images; // Loading images is underway

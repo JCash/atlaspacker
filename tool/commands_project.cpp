@@ -89,10 +89,20 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
     delete ctx;
 
     SetModalDialog(state, 0);
+    {
+        SCOPED_MUTEX(state->mutex);
+        state->project_open_pending = 0;
+    }
 }
 
 void CommandProjectFileOpen(HWorker worker, AppState* state)
 {
+    {
+        SCOPED_MUTEX(state->mutex);
+        if (state->project_open_pending)
+            return;
+        state->project_open_pending = 1;
+    }
     ProjectFileOpenContext* ctx = new ProjectFileOpenContext;
     ctx->state = state;
     ctx->path  = 0;
@@ -150,10 +160,20 @@ static void ProjectFileSave_Finished(int result, void* _ctx)
         //UpdateWindowTitle(state, false);
     }
     SetModalDialog(state, 0);
+    {
+        SCOPED_MUTEX(state->mutex);
+        state->project_save_pending = 0;
+    }
 }
 
 void CommandProjectFileSave(HWorker worker, AppState* state)
 {
+    {
+        SCOPED_MUTEX(state->mutex);
+        if (state->project_save_pending)
+            return;
+        state->project_save_pending = 1;
+    }
     WorkerPushJob(worker, ProjectFileSave_Process, ProjectFileSave_Finished, state);
 }
 
@@ -292,10 +312,20 @@ static void ProjectFileExport_Finished(int result, void* _ctx)
     AppState* state = (AppState*)_ctx;
     (void)result;
     SetModalDialog(state, 0);
+    {
+        SCOPED_MUTEX(state->mutex);
+        state->project_export_pending = 0;
+    }
 }
 
 void CommandProjectFileExport(HWorker worker, AppState* state)
 {
+    {
+        SCOPED_MUTEX(state->mutex);
+        if (state->project_export_pending)
+            return;
+        state->project_export_pending = 1;
+    }
     WorkerPushJob(worker, ProjectFileExport_Process, ProjectFileExport_Finished, (void*)state);
 }
 
