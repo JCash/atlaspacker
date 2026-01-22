@@ -1,21 +1,7 @@
 print("DEFOLD DEFAULT EXPORTER MODULE IMPORTED!")
 
--- function printtable(tbl, indent)
---   if not indent then indent = 0 end
---   for k, v in pairs(tbl) do
---     formatting = string.rep("  ", indent) .. k .. ": "
---     if type(v) == "table" then
---       print(formatting .. '{')
---       printtable(v, indent+1)
---       print(string.rep("  ", indent) .. '}')
---     else
---       print(formatting .. tostring(v))
---     end
---   end
--- end
-
 local DEFAULTS = {
-    atlas_file = {
+    data_file = {
         display = "Atlas File",
         desc    = "The exported .tpinfo file",
         edit    = "file",
@@ -38,7 +24,7 @@ function get_defaults()
     end
 
     local defaults = {
-        get_default('atlas_file')
+        get_default('data_file')
     }
 
     -- print("Testing")

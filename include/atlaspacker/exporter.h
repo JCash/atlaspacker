@@ -12,4 +12,4 @@ apOptionValue* apExportGetDefaultOptions(apProject* project, const char* exporte
 // Allows the exporter to update the options. Return 0 if unsuccessul
 int apExportUpdateOptions(apProject* project, const char* exporter_path);
 
-int apExportProject(apProject* project, const char* exporter_path, const char* output_path);
+int apExportProject(apProject* project, const char* exporter_path, const char* project_path);

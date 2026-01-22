@@ -108,6 +108,25 @@ static void PushRect(lua_State* L, apRect rect)
 //     }
 // }
 
+static apOptionValue* GetExportOption(apProject* project, const char* name, OptionValueType expected_type)
+{
+    apOptionValue* option = project->exporter_options;
+    while (option)
+    {
+        if (strcmp(name, option->name))
+        {
+            break;
+        }
+        option = option->next;
+    }
+    if (option && expected_type != option->type)
+    {
+        printf("Expected property %s to be type %d, but was %d\n", name, expected_type, option->type);
+        return 0;
+    }
+    return option;
+}
+
 static void PushOptions(lua_State* L, apProject* project)
 {
     lua_newtable(L);
@@ -874,25 +893,33 @@ static lua_State* CreateLuaState()
     return L;
 }
 
-int apExportProject(apProject* project, const char* exporter_path, const char* output_path)
+int apExportProject(apProject* project, const char* exporter_path, const char* project_path)
 {
     if (!ValidateProject(project))
         return 0;
 
     lua_State* L = CreateLuaState(); // We prefer to start with a clean slate
 
+    // Load the exporter.lua file
     int result = LuaLoadFile(L, exporter_path);
+
+    apOptionValue* data_file_option = GetExportOption(project, "data_file", OVT_STRING);
+    const char* output_path = data_file_option ? data_file_option->value.string : 0;
 
     if (result)
     {
-        result = LuaExport(L, project, output_path);
+        if (output_path)
+        {
+            // Call the exporter
+            result = LuaExport(L, project, output_path);
+        }
     }
 
     lua_close(L);
 
     if (result)
     {
-        printf("Exported using '%s' to '%s'\n", exporter_path, output_path);
+        printf("Exported using '%s' to '%s'\n", exporter_path, output_path ? output_path : "null");
     }
 
     return result;
