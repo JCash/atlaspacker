@@ -998,13 +998,33 @@ void DrawEditor(AppState* state, int width, int height)
         ImGuiID dockRight;
         ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.3f, &dockLeft, &dockRight);
 
+        ImGuiID dockRightTop = dockRight;
+        ImGuiID dockRightBottom = 0;
+        float bottom_ratio = height > 0 ? (200.0f / (float)height) : 0.25f;
+        if (bottom_ratio < 0.05f)
+            bottom_ratio = 0.05f;
+        if (bottom_ratio > 0.9f)
+            bottom_ratio = 0.9f;
+        ImGui::DockBuilderSplitNode(dockRight, ImGuiDir_Down, bottom_ratio, &dockRightBottom, &dockRightTop);
+
+        ImGuiID dockStats = dockRightBottom;
+        ImGuiID dockLog = 0;
+        float stats_ratio = width > 0 ? (300.0f / (float)width) : 0.2f;
+        if (stats_ratio < 0.05f)
+            stats_ratio = 0.05f;
+        if (stats_ratio > 0.5f)
+            stats_ratio = 0.5f;
+        ImGui::DockBuilderSplitNode(dockRightBottom, ImGuiDir_Left, stats_ratio, &dockStats, &dockLog);
+
         int left_size = width/3;
         if (left_size < 300)
             left_size = 300;
         ImGui::DockBuilderSetNodeSize(dockLeft, ImVec2(left_size, height));
 
         ImGui::DockBuilderDockWindow("#settings", dockLeft);
-        ImGui::DockBuilderDockWindow("#textures", dockRight);
+        ImGui::DockBuilderDockWindow("#textures", dockRightTop);
+        ImGui::DockBuilderDockWindow("#stats", dockStats);
+        ImGui::DockBuilderDockWindow("#log", dockLog);
 
         ImGui::DockBuilderFinish(dockspace_id);
 
@@ -1158,6 +1178,28 @@ void DrawEditor(AppState* state, int width, int height)
 
             ImGui::EndTabBar();
         }
+    ImGui::End();
+
+    ImGui::Begin("#textures_bottom");
+    ImGui::End();
+
+    ImGui::Begin("#stats");
+        apProjectStats stats;
+        if (state->project && apProjectGetState(state->project, &stats))
+        {
+            ImGui::Text("# images: %d", stats.num_images);
+            ImGui::Text("Loading Time: %.2f ms", stats.image_load_time / 1000.0f);
+            ImGui::Text("Packing Time: %.2f ms", stats.layout_time / 1000.0f);
+        }
+        else
+        {
+            ImGui::Text("# images: --");
+            ImGui::Text("Loading Time: --");
+            ImGui::Text("Packing Time: --");
+        }
+    ImGui::End();
+
+    ImGui::Begin("#log");
     ImGui::End();
 
     //ImGui::ShowDemoWindow();
