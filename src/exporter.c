@@ -108,16 +108,23 @@ static void PushRect(lua_State* L, apRect rect)
 //     }
 // }
 
-static apOptionValue* GetExportOption(apProject* project, const char* name, OptionValueType expected_type)
+static apOptionValue* FindOptionByName(apOptionValue* options, const char* name)
 {
-    apOptionValue* option = project->exporter_options;
-    while (option)
+    while (options)
     {
-        if (strcmp(name, option->name))
-        {
-            break;
-        }
-        option = option->next;
+        if (options->name && strcmp(options->name, name) == 0)
+            return options;
+        options = options->next;
+    }
+    return 0;
+}
+
+static apOptionValue* FindOptionsByName(apProject* project, const char* name, OptionValueType expected_type)
+{
+    apOptionValue* option = FindOptionByName(project->exporter_options, name);
+    if (!option)
+    {
+        option = FindOptionByName(project->exporter_defaults, name);
     }
     if (option && expected_type != option->type)
     {
@@ -340,17 +347,6 @@ static apOptionValue* CloneOptionValue(const apOptionValue* src)
         option->value.number = src->value.number;
 
     return option;
-}
-
-static apOptionValue* FindOptionByName(apOptionValue* options, const char* name)
-{
-    while (options)
-    {
-        if (options->name && strcmp(options->name, name) == 0)
-            return options;
-        options = options->next;
-    }
-    return 0;
 }
 
 static void AppendOption(apOptionValue** head, apOptionValue* option)
@@ -903,7 +899,7 @@ int apExportProject(apProject* project, const char* exporter_path, const char* p
     // Load the exporter.lua file
     int result = LuaLoadFile(L, exporter_path);
 
-    apOptionValue* data_file_option = GetExportOption(project, "data_file", OVT_STRING);
+    apOptionValue* data_file_option = FindOptionsByName(project, "data_file", OVT_STRING);
     const char* output_path = data_file_option ? data_file_option->value.string : 0;
 
     if (result)
