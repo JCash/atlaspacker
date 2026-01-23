@@ -1,5 +1,6 @@
-// License: MIT
-// @2021-@2024 Mathias Westerdahl
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
+// https://github.com/JCash/atlaspacker
 
 #ifndef ATLASPACKER_TOOL_SYS_H
 #define ATLASPACKER_TOOL_SYS_H
