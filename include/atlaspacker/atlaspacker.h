@@ -3,7 +3,8 @@
 // @2021-@2024 Mathias Westerdahl
 
 /////////////////////////////////////////////////////////
-#pragma once
+#ifndef ATLASPACKER_ATLASPACKER_H
+#define ATLASPACKER_ATLASPACKER_H
 
 #include <stdint.h>
 
@@ -133,3 +134,5 @@ int         apMathRoundUp(int x, int multiple);
 // Collision (takes two arrays of vertices, each forming a polygon)
 // Vertices are in CCW order
 int         apOverlapTest2D(const apPosf* a, int sizea, const apPosf* b, int sizeb);
+
+#endif // ATLASPACKER_ATLASPACKER_H

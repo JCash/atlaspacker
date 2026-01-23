@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_UTIL_H
+#define ATLASPACKER_UTIL_H
 
 #include <stdint.h>
 #include <atlaspacker/atlaspacker.h>
@@ -21,3 +22,5 @@ typedef struct
 } Page;
 
 Page* apRenderPages(apContext* context, int* num_pages, uint32_t debug_color);
+
+#endif // ATLASPACKER_UTIL_H

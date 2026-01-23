@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_PROJECT_H
+#define ATLASPACKER_PROJECT_H
 
 #include "atlaspacker.h"
 #include "tilepacker.h"
@@ -74,3 +75,5 @@ void apProjectPackerPrepareImages(apProject* project);
 void apDestroyOptions(apOptionValue* option);
 
 void apDebugPrintProject(apProject* p);
+
+#endif // ATLASPACKER_PROJECT_H

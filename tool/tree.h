@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_TREE_H
+#define ATLASPACKER_TOOL_TREE_H
 
 #include <stdint.h>
 
@@ -41,3 +42,5 @@ TreeNode*   TreeNodeTreeClone(TreeNode* root);
 
 // Recursively destroy a tree
 void        TreeNodeTreeDestroy(TreeNode* root);
+
+#endif // ATLASPACKER_TOOL_TREE_H

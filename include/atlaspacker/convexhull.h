@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_CONVEXHULL_H
+#define ATLASPACKER_CONVEXHULL_H
 
 #include <stdint.h>
 #include <atlaspacker/atlaspacker.h>
@@ -20,3 +21,5 @@ void apHullFindLargestBoxes(int width, int height, uint8_t* data, APHullBoxCallb
 apPosf* apHullFromImage(uint8_t* image, int width, int height, int* num_vertices);
 
 apPosf* apCreateBoxVertices(apPos pos, apSize size, int* num_vertices);
+
+#endif // ATLASPACKER_CONVEXHULL_H

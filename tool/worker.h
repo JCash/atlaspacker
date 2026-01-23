@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_WORKER_H
+#define ATLASPACKER_TOOL_WORKER_H
 
 typedef struct Worker* HWorker;
 
@@ -19,3 +20,5 @@ void    WorkerDestroy(HWorker worker);
 void    WorkerPushJob(HWorker worker, FWorkerProcess process, FWorkerCallback finished, void* job_ctx);
 // Flush all finished jobs and do callbacks on the current thread
 void    WorkerUpdate(HWorker worker);
+
+#endif // ATLASPACKER_TOOL_WORKER_H

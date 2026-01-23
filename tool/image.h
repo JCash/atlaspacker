@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_IMAGE_H
+#define ATLASPACKER_TOOL_IMAGE_H
 
 #include <stdint.h>
 #include "hash.h"
@@ -25,3 +26,5 @@ void        DestroyImage(Image* image);
 uint8_t*    CreateTileImage(Image* image, uint32_t tile_size, int alphathreshold, int* twidth, int* theight);
 
 void        SortImages(Image** images, int num_images);
+
+#endif // ATLASPACKER_TOOL_IMAGE_H

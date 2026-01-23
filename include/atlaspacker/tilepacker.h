@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TILEPACKER_H
+#define ATLASPACKER_TILEPACKER_H
 
 #include <atlaspacker/atlaspacker.h>
 
@@ -135,3 +136,5 @@ uint8_t*  apTilePackerDebugCreateImageFromTileImage(apImage* image, int index, i
         - After renderint the geometry image, we'll use a dilate(texels) step, to make account for custom padding
 
 */
+
+#endif // ATLASPACKER_TILEPACKER_H

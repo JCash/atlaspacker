@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_BINPACKER_H
+#define ATLASPACKER_BINPACKER_H
 
 #include <atlaspacker/atlaspacker.h>
 
@@ -25,3 +26,5 @@ typedef struct
 void      apBinPackerSetDefaultOptions(apBinPackerOptions* options);
 apPacker* apBinPackerCreate(apBinPackerOptions* options);
 void      apBinPackerDestroy(apPacker* packer);
+
+#endif // ATLASPACKER_BINPACKER_H

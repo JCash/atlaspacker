@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_EXPORTER_H
+#define ATLASPACKER_EXPORTER_H
 
 #include <atlaspacker/project.h>
 
@@ -13,3 +14,5 @@ apOptionValue* apExportGetDefaultOptions(apProject* project, const char* exporte
 int apExportUpdateOptions(apProject* project, const char* exporter_path);
 
 int apExportProject(apProject* project, const char* exporter_path, const char* project_path);
+
+#endif // ATLASPACKER_EXPORTER_H

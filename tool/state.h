@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_STATE_H
+#define ATLASPACKER_TOOL_STATE_H
 
 extern "C" {
     #include <atlaspacker/util.h>
@@ -148,3 +149,5 @@ Preferences* CreatePreferences();
 void         DestroyPreferences(Preferences* prefs);
 Preferences* LoadPreferences(const char* path);
 bool         SavePreferences(const char* path, Preferences* prefs);
+
+#endif // ATLASPACKER_TOOL_STATE_H

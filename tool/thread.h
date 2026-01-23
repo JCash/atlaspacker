@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_THREAD_H
+#define ATLASPACKER_TOOL_THREAD_H
 
 #if defined(_WIN32)
 
@@ -64,3 +65,5 @@ struct ScopedMutexLock
 
 // ****************************************************************
 // Thread
+
+#endif // ATLASPACKER_TOOL_THREAD_H

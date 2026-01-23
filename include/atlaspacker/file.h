@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_FILE_H
+#define ATLASPACKER_FILE_H
 
 #include <stdint.h>
 
@@ -12,3 +13,5 @@ int IterateFiles(const char* dirpath, int recursive, int (*callback)(void* ctx, 
 
 // Memory is allocated using malloc()
 uint8_t* ReadFile(const char* path, uint32_t* file_size);
+
+#endif // ATLASPACKER_FILE_H

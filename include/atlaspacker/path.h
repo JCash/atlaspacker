@@ -1,4 +1,5 @@
-#pragma once
+#ifndef ATLASPACKER_PATH_H
+#define ATLASPACKER_PATH_H
 
 #include <stddef.h>
 
@@ -9,3 +10,5 @@ void apPathResolveStringPatterns(char* buffer, size_t buffer_size, const char* p
                                  const char** key_value_pairs, int num_pairs);
 
 void apPathNormalize(char* path);
+
+#endif // ATLASPACKER_PATH_H

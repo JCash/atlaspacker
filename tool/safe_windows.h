@@ -2,7 +2,8 @@
 // License: MIT
 // @2021-@2024 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_TOOL_SAFE_WINDOWS_H
+#define ATLASPACKER_TOOL_SAFE_WINDOWS_H
 
 #if defined(_MSC_VER)
 
@@ -40,3 +41,5 @@
 #endif // DMSDK_SAFE_WINDOWS_H
 
 #endif // defined(_MSC_VER)
+
+#endif // ATLASPACKER_TOOL_SAFE_WINDOWS_H
