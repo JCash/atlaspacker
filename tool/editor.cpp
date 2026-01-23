@@ -209,6 +209,19 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
             if (!state->modal_dialog)
                 CommandProjectFileExport(state->uithread, state);
         }
+        else if (ev->key_code == SAPP_KEYCODE_DELETE || ev->key_code == SAPP_KEYCODE_BACKSPACE)
+        {
+            if (!ImGui::GetIO().WantCaptureKeyboard)
+            {
+                SCOPED_MUTEX(state->mutex);
+                if (!state->modal_dialog)
+                    CommandDeleteSelectedImages(state->uithread, state);
+            }
+            else
+            {
+                simgui_handle_event(ev);
+            }
+        }
         else if (ev->key_code == KEY_CODE_QUIT && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
         {
             sapp_request_quit();

@@ -8,6 +8,7 @@
 
 #include <unistd.h> // getcwd
 #include <stdlib.h>
+#include <string.h>
 
 extern "C" {
     #include <atlaspacker/exporter.h>
@@ -54,6 +55,46 @@ static void ResetProjectState(AppState* state)
     state->max_image_size = 0;
     state->loading_images = 0;
     CreateDefaultTexture(state);
+}
+
+static int RemoveProjectSource(apProject* project, const char* source)
+{
+    if (!project || !project->sources || !source)
+        return 0;
+
+    for (int i = 0; i < project->num_sources; ++i)
+    {
+        if (strcmp(project->sources[i], source) == 0)
+        {
+            free((void*)project->sources[i]);
+            for (int j = i + 1; j < project->num_sources; ++j)
+            {
+                project->sources[j - 1] = project->sources[j];
+            }
+            project->num_sources--;
+            if (project->num_sources == 0)
+            {
+                free((void*)project->sources);
+                project->sources = 0;
+            }
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void RemoveImageByHash(AppState* state, hash_t path_hash)
+{
+    Image** image_ptr = state->images.Get(path_hash);
+    if (!image_ptr)
+        return;
+
+    Image* image = *image_ptr;
+    AppTexture* texture = (AppTexture*)image->context;
+    if (texture)
+        DeleteTexture(texture);
+    DestroyImage(image);
+    state->images.Erase(path_hash);
 }
 
 // ************************************************************************************
@@ -166,6 +207,72 @@ void CommandProjectFileNew(HWorker worker, AppState* state)
     ResetProjectState(state);
 
     state->dirty = 0;
+}
+
+// ************************************************************************************
+// Delete selected images (top-level only)
+
+void CommandDeleteSelectedImages(HWorker worker, AppState* state)
+{
+    (void)worker;
+
+    SCOPED_MUTEX(state->mutex);
+
+    if (!state->project || !state->images_root)
+        return;
+
+    TreeNode* root = state->images_root;
+    TreeNode* prev = 0;
+    TreeNode* node = root->child;
+    int removed = 0;
+
+    while (node)
+    {
+        TreeNode* next = node->sibling;
+        if (node->type == TN_TYPE_IMAGE && node->selected)
+        {
+            if (RemoveProjectSource(state->project, node->path))
+            {
+                RemoveImageByHash(state, node->path_hash);
+                state->selected_images.Erase(node->path_hash);
+
+                if (prev)
+                    prev->sibling = next;
+                else
+                    root->child = next;
+
+                free((void*)node->path);
+                free((void*)node);
+                removed++;
+            }
+            else
+            {
+                prev = node;
+            }
+        }
+        else
+        {
+            prev = node;
+        }
+        node = next;
+    }
+
+    if (removed == 0)
+        return;
+
+    int max_size = 0;
+    for (jc::HashTable<hash_t, Image*>::Iterator it = state->images.Begin(); it != state->images.End(); ++it)
+    {
+        Image* image = *it.GetValue();
+        if (image->width > max_size)
+            max_size = image->width;
+        if (image->height > max_size)
+            max_size = image->height;
+    }
+    state->max_image_size = max_size;
+    state->dirty = 1;
+
+    CommandRecreateAtlas(state->thread, state);
 }
 
 // ************************************************************************************

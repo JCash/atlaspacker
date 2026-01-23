@@ -21,6 +21,7 @@ void CommandProjectFileOpen(HWorker worker, AppState* state);
 void CommandProjectFileNew(HWorker worker, AppState* state);
 void CommandProjectFileSave(HWorker worker, AppState* state);
 void CommandProjectFileExport(HWorker worker, AppState* state);
+void CommandDeleteSelectedImages(HWorker worker, AppState* state);
 
 void CommandAddImageFile(HWorker worker, AppState* state);
 void CommandAddImageFolder(HWorker worker, AppState* state);
