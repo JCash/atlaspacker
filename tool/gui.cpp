@@ -590,7 +590,7 @@ static void DrawAtlasPages(AppState* state)
 
     ImGui::Text("Atlas: %zu pages, %d x %d", state->page_textures.Size(), state->page_size.width, state->page_size.height);
 
-    ImGui::BeginChild("#atlas_texture");
+    ImGui::BeginChild("#atlas_texture", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
 
     ImVec2 view_size = ImGui::GetWindowSize();
 
@@ -599,19 +599,18 @@ static void DrawAtlasPages(AppState* state)
     float scroll_x = ImGui::GetScrollX();
     float scroll_y = ImGui::GetScrollY();
 
+    bool is_left_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     if (hovered && io.MouseWheel != 0.0f)
     {
         const float zoom_speed = 0.01f;
         state->zoom += io.MouseWheel * zoom_speed;
-        if (state->zoom < 0.02f)
-            state->zoom = 0.02f;
-        if (state->zoom > 3.0f)
-            state->zoom = 3.0f;
-        ImGui::SetScrollX(scroll_x);
-        ImGui::SetScrollY(scroll_y);
+        if (state->zoom < 0.1f)
+            state->zoom = 0.1f;
+        if (state->zoom > 10.0f)
+            state->zoom = 10.0f;
     }
 
-    if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    if (hovered && is_left_down && (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f))
     {
         ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseDelta.x);
         ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
