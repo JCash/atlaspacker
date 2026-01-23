@@ -178,7 +178,13 @@ local function export_sprite(output, indent_level, image)
 
     export_point(output, indent_level + 1, "corner_offset", { x = 0, y = 0 })
     export_rect(output, indent_level + 1, "source_rect", source_rect)
-    export_point(output, indent_level + 1, "pivot", { x = 0.5, y = 0.5 })
+
+    local pivot = image and image.pivot or nil
+    if not pivot or pivot.x == nil or pivot.y == nil then
+        pivot = { x = source_width * 0.5, y = source_height * 0.5 }
+    end
+    export_point(output, indent_level + 1, "pivot", pivot)
+
     export_rect(output, indent_level + 1, "frame_rect", frame_rect)
     export_size(output, indent_level + 1, "untrimmed_size", { width = source_width, height = source_height })
 
