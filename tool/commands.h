@@ -18,6 +18,7 @@ enum CommandResult
 
 // Delay jobs for the main thread
 void CommandProjectFileOpen(HWorker worker, AppState* state);
+void CommandProjectFileNew(HWorker worker, AppState* state);
 void CommandProjectFileSave(HWorker worker, AppState* state);
 void CommandProjectFileExport(HWorker worker, AppState* state);
 

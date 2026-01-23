@@ -1009,6 +1009,12 @@ void DrawEditor(AppState* state, int width, int height)
     {
         if (ImGui::BeginMenu("File"))
         {
+            bool new_activated = ImGui::MenuItem("New File", "CTRL+N");
+            if (new_activated)
+            {
+                CommandProjectFileNew(state->uithread, state);
+            }
+
             bool open_requested = false;
             bool open_activated = ImGui::MenuItem("Open...", "CTRL+O");
             bool open_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);

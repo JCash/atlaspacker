@@ -7,6 +7,7 @@
 #include "state.h"
 
 #include <unistd.h> // getcwd
+#include <stdlib.h>
 
 extern "C" {
     #include <atlaspacker/exporter.h>
@@ -22,6 +23,37 @@ static void SetModalDialog(AppState* state, int set)
 {
     SCOPED_MUTEX(state->mutex);
     state->modal_dialog = set;
+}
+
+static void DestroyAtlasPages(AppState* state)
+{
+    for (int i = 0; i < state->num_pages; ++i)
+    {
+        free(state->pages[i].data);
+    }
+    free(state->pages);
+    state->pages = 0;
+    state->num_pages = 0;
+}
+
+static void ResetProjectState(AppState* state)
+{
+    DestroyAtlasPages(state);
+    DestroyImages(state);
+    if (state->images.Capacity() > 0)
+        state->images.Clear();
+    if (state->selected_images.Capacity() > 0)
+        state->selected_images.Clear();
+
+    if (state->images_root)
+    {
+        TreeNodeTreeDestroy(state->images_root);
+        state->images_root = 0;
+    }
+
+    state->max_image_size = 0;
+    state->loading_images = 0;
+    CreateDefaultTexture(state);
 }
 
 // ************************************************************************************
@@ -45,8 +77,7 @@ static int ProjectFileOpen_Process(void* _ctx)
     nfdresult_t result = NFD_OpenDialog("ap", 0, &outpath);
     if (NFD_OKAY == result)
     {
-        ctx->path = strdup(outpath);
-        free(outpath);
+        ctx->path = outpath;
         return RESULT_OK;
     }
     return RESULT_FAILED;
@@ -111,6 +142,33 @@ void CommandProjectFileOpen(HWorker worker, AppState* state)
 }
 
 // ************************************************************************************
+// New Project File
+
+void CommandProjectFileNew(HWorker worker, AppState* state)
+{
+    (void)worker;
+
+    SCOPED_MUTEX(state->mutex);
+
+    printf("New file command invoked\n");
+
+    if (state->path)
+    {
+        free((void*)state->path);
+        state->path = 0;
+    }
+
+    if (state->project)
+        apDestroyProject(state->project);
+    state->project = apLoadProjectFromMemory("untitled", 0);
+
+    ClearExporterOptionCache(state);
+    ResetProjectState(state);
+
+    state->dirty = 0;
+}
+
+// ************************************************************************************
 // Project file save
 
 static int ProjectFileSave_Process(void* _ctx)
@@ -130,14 +188,12 @@ static int ProjectFileSave_Process(void* _ctx)
             if (apSaveProject(outpath, state->project))
             {
                 r = true;
-                state->path = outpath; // it'll be deleted with the project
+                state->path = outpath;
+                outpath = 0;
 
                 printf("MAWE Wrote document: %s\n", state->path);
             }
-            else
-            {
-                free(outpath);
-            }
+            free(outpath);
         }
     }
     else

@@ -4,6 +4,7 @@
 
 #include <limits.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "commands.h"
 #include "gui.h"
@@ -44,17 +45,20 @@ extern "C" {
 // #include <noc_file_dialog.h>
 
 #if defined(__APPLE__)
+    #define KEY_CODE_NEW            SAPP_KEYCODE_N
     #define KEY_CODE_OPEN           SAPP_KEYCODE_O
     #define KEY_CODE_SAVE           SAPP_KEYCODE_S
     #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
     #define KEY_CODE_QUIT           SAPP_KEYCODE_Q
     #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_SUPER
 #elif defined(_WIN32)
+    #define KEY_CODE_NEW            SAPP_KEYCODE_N
     #define KEY_CODE_OPEN           SAPP_KEYCODE_O
     #define KEY_CODE_SAVE           SAPP_KEYCODE_S
     #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
     #define KEY_CODE_MODIFIERS      SAPP_MODIFIER_CTRL
 #else
+    #define KEY_CODE_NEW            SAPP_KEYCODE_N
     #define KEY_CODE_OPEN           SAPP_KEYCODE_O
     #define KEY_CODE_SAVE           SAPP_KEYCODE_S
     #define KEY_CODE_EXPORT         SAPP_KEYCODE_E
@@ -181,7 +185,13 @@ static void OnSokolEvent(const sapp_event* ev, void* user_data) {
 
     if (ev->type == SAPP_EVENTTYPE_KEY_DOWN)
     {
-        if (ev->key_code == KEY_CODE_OPEN && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
+        if (ev->key_code == KEY_CODE_NEW && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
+        {
+            SCOPED_MUTEX(state->mutex);
+            if (!state->modal_dialog)
+                CommandProjectFileNew(state->uithread, state);
+        }
+        else if (ev->key_code == KEY_CODE_OPEN && (ev->modifiers & KEY_CODE_MODIFIERS)==KEY_CODE_MODIFIERS)
         {
             SCOPED_MUTEX(state->mutex);
             if (!state->modal_dialog)
@@ -266,7 +276,7 @@ int main(int argc, char* argv[])
     if (argc > 1)
     {
         // TODO: Replace with a load command, in order to move the loading code into one place
-        state.path = argv[argc-1];
+        state.path = strdup(argv[argc-1]);
         state.project = apLoadProjectFromPath(state.path);
 
         int dirty_fileset = state.project != 0;
