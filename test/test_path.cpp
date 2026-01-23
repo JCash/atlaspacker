@@ -5,7 +5,7 @@
 
 extern "C"
 {
-#include "src/path.h"
+#include <atlaspacker/path.h>
 }
 
 TEST(Path, SplitUnixPath)

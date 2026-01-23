@@ -1,4 +1,4 @@
-#include "path.h"
+#include <atlaspacker/path.h>
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,7 +1,6 @@
 
-#include "path.h"
-
 #include <atlaspacker/exporter.h>
+#include <atlaspacker/path.h>
 #include <atlaspacker/util.h>
 #include <assert.h>
 #include <stdio.h>
