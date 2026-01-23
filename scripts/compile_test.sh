@@ -27,6 +27,11 @@ compile_cpp_file test/test_${NAME}.cpp test${NAME}
 compile_lib test${NAME} test${NAME}
 link_exe test_${NAME} test${NAME} testutils stb cjson atlaspacker
 
+NAME=path
+compile_cpp_file test/test_${NAME}.cpp test${NAME}
+compile_lib test${NAME} test${NAME}
+link_exe test_${NAME} test${NAME} testutils stb atlaspacker
+
 # NAME=convexhull
 # compile_cpp_file test/test_${NAME}.cpp test${NAME}
 # compile_lib test${NAME} test${NAME}

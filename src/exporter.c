@@ -1,11 +1,17 @@
 
+#include "path.h"
+
 #include <atlaspacker/exporter.h>
+#include <atlaspacker/util.h>
 #include <assert.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 
 #include "lua/lualib.h"
 #include "lua/lauxlib.h"
+
+#include <stb_wrappers.h>
 
 static int PPrintTable(lua_State* L, int index, int indent);
 
@@ -889,34 +895,164 @@ static lua_State* CreateLuaState()
     return L;
 }
 
+static int WriteImage(const char* path, const char* image_format, const Page* page)
+{
+    if (!path || !image_format || !page)
+        return 0;
+
+    if (strcmp(image_format, "png") == 0)
+    {
+        return STBI_write_png(path, page->width, page->height, page->channels,
+            page->data, page->width * page->channels);
+    }
+    if (strcmp(image_format, "tga") == 0)
+    {
+        return STBI_write_tga(path, page->width, page->height, page->channels, page->data);
+    }
+
+    printf("Unsupported image format '%s'\n", image_format);
+    return 0;
+}
+
+static int ExportPages(apProject* project, const char* project_path)
+{
+    // TODO: Make the image output format configurable
+    const char* image_format = "png"; // For now, use .png file format
+
+    // TODO: Make the export path configurable
+    const char* export_path_pattern = 0;
+
+    const char* default_export_path_pattern = "{project_path}/{project_name}_{N}.{image_format}";
+
+    if (!export_path_pattern)
+        export_path_pattern = default_export_path_pattern;
+
+    int num_pages = 0;
+    Page* pages = apRenderPages(project->context, &num_pages, 0);
+    if (!pages || num_pages <= 0)
+    {
+        printf("No pages to export for '%s'\n", project_path);
+        free(pages);
+        return 0;
+    }
+
+    char project_dir[2048];
+    char project_name[256];
+    apPathSplitProjectPath(project_path, project_dir, sizeof(project_dir), project_name, sizeof(project_name));
+    char project_dir_prefix[2050];
+    if (project_dir[0])
+        snprintf(project_dir_prefix, sizeof(project_dir_prefix), "%s/", project_dir);
+    else
+        project_dir_prefix[0] = 0;
+
+    int result = 1;
+    for (int i = 0; i < num_pages; ++i)
+    {
+        char export_path[4096];
+        char index_str[16];
+        snprintf(index_str, sizeof(index_str), "%d", i);
+        const char* pairs[] = {
+            "{project_path}", project_dir_prefix,
+            "{project_name}", project_name,
+            "{image_format}", image_format,
+            "index", index_str
+        };
+        apPathResolveStringPatterns(export_path, sizeof(export_path), export_path_pattern, pairs, (int)(sizeof(pairs) / sizeof(pairs[0]) / 2));
+        apPathNormalize(export_path);
+
+        if (WriteImage(export_path, image_format, &pages[i]))
+        {
+            printf("Wrote atlas page to '%s'\n", export_path);
+        }
+        else
+        {
+            printf("Failed to write atlas page to '%s'\n", export_path);
+            result = 0;
+        }
+
+        free(pages[i].data);
+    }
+
+    free(pages);
+    return result;
+}
+
 int apExportProject(apProject* project, const char* exporter_path, const char* project_path)
 {
     if (!ValidateProject(project))
         return 0;
 
+
+    // TODO: Make these settings configurable by the exporter.lua api
+    int export_pages = 1;
+    int export_meta_data = 1;
+
+    apOptionValue* data_file_option = 0;
+    const char* output_path = 0;
+
     lua_State* L = CreateLuaState(); // We prefer to start with a clean slate
 
     // Load the exporter.lua file
     int result = LuaLoadFile(L, exporter_path);
-
-    apOptionValue* data_file_option = FindOptionsByName(project, "data_file", OVT_STRING);
-    const char* output_path = data_file_option ? data_file_option->value.string : 0;
-
-    if (result)
+    if (!result)
     {
-        if (output_path)
+        printf("Failed to load exporter '%s'\n", exporter_path);
+        return 0;
+    }
+
+    data_file_option = FindOptionsByName(project, "data_file", OVT_STRING);
+    output_path = data_file_option ? data_file_option->value.string : 0;
+    if (!output_path)
+    {
+        printf("Failed to find export filename for '%s'\n", project_path);
+        goto export_end;
+    }
+
+    if (export_meta_data)
+    {
+        char project_dir[2048];
+        char project_name[256];
+        apPathSplitProjectPath(project_path, project_dir, sizeof(project_dir), project_name, sizeof(project_name));
+
+        char meta_path[4096];
+        const char* pairs[] = {
+            "{project_path}", project_dir,
+            "{project_name}", project_name
+        };
+        apPathResolveStringPatterns(meta_path, sizeof(meta_path), output_path, pairs, (int)(sizeof(pairs) / sizeof(pairs[0]) / 2));
+        apPathNormalize(meta_path);
+
+        result = LuaExport(L, project, meta_path);
+
+        if (result)
         {
-            // Call the exporter
-            result = LuaExport(L, project, output_path);
+            printf("Exported meta data using '%s' to '%s'\n", exporter_path, meta_path);
+        }
+        else
+        {
+            printf("Failed exporting meta data using '%s' to '%s'\n", exporter_path, meta_path);
+            goto export_end;
         }
     }
 
-    lua_close(L);
-
-    if (result)
+    if (export_pages)
     {
-        printf("Exported using '%s' to '%s'\n", exporter_path, output_path ? output_path : "null");
+        result = ExportPages(project, project_path);
+
+        if (result)
+        {
+            printf("Exported atlas pages for '%s'\n", project_path);
+        }
+        else
+        {
+            printf("Failed exporting atlas pages for '%s'\n", project_path);
+            goto export_end;
+        }
     }
+
+
+export_end:
+    lua_close(L);
 
     return result;
 }

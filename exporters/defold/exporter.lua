@@ -5,7 +5,7 @@ local DEFAULTS = {
         display = "Atlas File",
         desc    = "The exported .tpinfo file",
         edit    = "file",
-        value   = "default.tpinfo"
+        value   = "{project_path}/{project_name}.tpinfo"
     }
 }
 

@@ -18,9 +18,9 @@ compile_c_file src/tilepacker.c ${PREFIX}
 compile_c_file src/convexhull.c ${PREFIX}
 compile_c_file src/project.c ${PREFIX}
 compile_c_file src/exporter.c ${PREFIX}
+compile_c_file src/path.c ${PREFIX}
 compile_c_file src/util.c ${PREFIX}
 compile_c_file src/file.c ${PREFIX}
 
 # Gathers all object files matching the prefix
 compile_lib atlaspacker ${PREFIX}
-
