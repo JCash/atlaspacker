@@ -985,6 +985,11 @@ int apExportProject(apProject* project, const char* exporter_path, const char* p
     if (!ValidateProject(project))
         return 0;
 
+    if (!exporter_path || exporter_path[0] == 0)
+    {
+        printf("No exporter specified for project '%s'\n", project_path ? project_path : "(unknown)");
+        return 0;
+    }
 
     // TODO: Make these settings configurable by the exporter.lua api
     int export_pages = 1;

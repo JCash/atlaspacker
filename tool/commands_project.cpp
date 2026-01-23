@@ -294,6 +294,8 @@ static int ProjectFileExport_Process(void* _ctx)
 
     SCOPED_MUTEX(state->mutex);
 
+    printf("Export command invoked\n");
+
     if (!state->project)
     {
         return RESULT_FAILED;
@@ -301,6 +303,7 @@ static int ProjectFileExport_Process(void* _ctx)
 
     if (!state->exporter_path)
     {
+        printf("No exporter path set\n");
         return RESULT_FAILED;
     }
 
