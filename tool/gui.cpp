@@ -594,14 +594,27 @@ static void DrawAtlasPages(AppState* state)
 
     ImVec2 view_size = ImGui::GetWindowSize();
 
-    if (ImGui::IsKeyDown(ImGuiKey_MouseWheelY) && ImGui::IsKeyDown(ImGuiMod_Ctrl))
+    ImGuiIO& io = ImGui::GetIO();
+    bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
+    float scroll_x = ImGui::GetScrollX();
+    float scroll_y = ImGui::GetScrollY();
+
+    if (hovered && io.MouseWheel != 0.0f)
     {
         const float zoom_speed = 0.01f;
-        state->zoom += ImGui::GetIO().MouseWheel * zoom_speed;
+        state->zoom += io.MouseWheel * zoom_speed;
         if (state->zoom < 0.02f)
             state->zoom = 0.02f;
         if (state->zoom > 3.0f)
             state->zoom = 3.0f;
+        ImGui::SetScrollX(scroll_x);
+        ImGui::SetScrollY(scroll_y);
+    }
+
+    if (hovered && ImGui::IsMouseDragging(ImGuiMouseButton_Left))
+    {
+        ImGui::SetScrollX(ImGui::GetScrollX() - io.MouseDelta.x);
+        ImGui::SetScrollY(ImGui::GetScrollY() - io.MouseDelta.y);
     }
 
     ImVec2 page_bounds(view_size.x * state->zoom, view_size.y * state->zoom);
