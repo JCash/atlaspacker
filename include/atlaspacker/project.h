@@ -36,6 +36,13 @@ typedef struct apOptionValue
     OptionValueType type;
 } apOptionValue;
 
+typedef struct apProjectStats
+{
+    int         num_images;
+    uint64_t    image_load_time;   // microseconds
+    uint64_t    layout_time;       // microseconds
+} apProjectStats;
+
 typedef struct
 {
     const char**        sources; // list of files or directories
@@ -59,6 +66,8 @@ typedef struct
     apImage*            images;
     int                 num_images;
 
+    apProjectStats      stats;
+
 } apProject;
 
 void        apDestroyProject(apProject* project);
@@ -70,6 +79,7 @@ void apProjectAddSources(apProject* project, const char** sources, int num_sourc
 
 void apProjectLoadImages(apProject* project);
 void apProjectPackerPrepareImages(apProject* project);
+int  apProjectGetState(apProject* project, apProjectStats* stats);
 
 // internal
 void apDestroyOptions(apOptionValue* option);

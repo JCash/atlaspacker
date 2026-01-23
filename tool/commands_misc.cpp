@@ -24,6 +24,7 @@ static int RecreateAtlas_Process(void* _ctx)
 
     uint64_t tend;
     uint64_t tstart;
+    uint64_t pack_time = 0;
 
     SCOPED_MUTEX(state->mutex);
 
@@ -67,11 +68,14 @@ static int RecreateAtlas_Process(void* _ctx)
         apPackImages(project->context);
 
         tend = GetTime();
-        printf("Packing atlas images took %.2f ms\n", (tend-tstart)/1000.0f);
+        pack_time = tend - tstart;
+        printf("Packing atlas images took %.2f ms\n", pack_time / 1000.0f);
     }
 
     {
         SCOPED_MUTEX(state->mutex);
+        project->stats.num_images = (int)state->images.Size();
+        project->stats.layout_time = pack_time;
         state->num_pages = 0;
         state->pages = apRenderPages(project->context, &state->num_pages, 0);
     }
@@ -269,6 +273,11 @@ static int LoadImages_Process(void* ctx)
         }
     }
 
+    uint64_t tend = GetTime();
+    uint64_t load_time = tend - tstart;
+
+    tstart = tend;
+
     {
         SCOPED_MUTEX(state->mutex);
 
@@ -288,11 +297,18 @@ static int LoadImages_Process(void* ctx)
             TreeNodeTreeDestroy(state->images_root);
         state->images_root = root;
 
+        if (state->project)
+        {
+            state->project->stats.num_images = (int)state->images.Size();
+            state->project->stats.image_load_time = load_time;
+        }
+
         CommandRecreateAtlas(state->thread, state);
     }
 
-    uint64_t tend = GetTime();
-    printf("ThreadLoadImages: Loaded %u images in %.3f s!\n", state->images.Size(), (tend - tstart) / 1000000.0f);
+    tend = GetTime();
+
+    printf("ThreadLoadImages: Loaded %u images in %.3f s!\n", state->images.Size(), (load_time + (tend - tstart)) / 1000000.0f);
     return RESULT_OK;
 }
 

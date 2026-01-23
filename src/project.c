@@ -405,6 +405,15 @@ void apProjectAddSources(apProject* project, const char** sources, int num_sourc
 	}
 }
 
+int apProjectGetState(apProject* project, apProjectStats* stats)
+{
+    if (!project || !stats)
+        return 0;
+
+    *stats = project->stats;
+    return 1;
+}
+
 
 void apDebugPrintProject(apProject* p)
 {
