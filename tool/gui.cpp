@@ -610,11 +610,17 @@ static void DrawAtlasPages(AppState* state)
     {
         ImVec2 uv0 = {0,0};
         ImVec2 uv1 = {1,1};
-        ImGui::SameLine(0, 0);
+        if (i > 0)
+            ImGui::SameLine(0, 0);
+
+        ImGui::BeginGroup();
 
         apPage* page = apGetPage(state->project->context, i);
         if (!page)
+        {
+            ImGui::EndGroup();
             continue;
+        }
 
         float page_width = (float)page->dimensions.width;
         float page_height = (float)page->dimensions.height;
@@ -626,9 +632,13 @@ static void DrawAtlasPages(AppState* state)
         ImVec2 start_pos = ImGui::GetCursorScreenPos();
 
         if (state->page_textures[i]->texture_id == 0)
+        {
+            ImGui::EndGroup();
             continue;
+        }
 
         ImGui::Image(state->page_textures[i]->texture_id, page_size, uv0, uv1);
+        ImGui::Text("%d x %d", page->dimensions.width, page->dimensions.height);
 
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         draw_list->AddRect(start_pos, ImVec2(start_pos.x + page_size.x, start_pos.y + page_size.y), 0xFF7F7F7F, 0.0f, 0, 1.0f);
@@ -692,6 +702,8 @@ static void DrawAtlasPages(AppState* state)
 
             image = image->next;
         }
+
+        ImGui::EndGroup();
     }
 
     ImGui::EndChild();
