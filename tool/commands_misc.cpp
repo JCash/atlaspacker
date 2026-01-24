@@ -14,6 +14,7 @@ extern "C" {
 }
 
 #include <stdio.h> // printf
+#include <math.h>
 
 // ************************************************************************************
 // Recreate the atlas information
@@ -75,20 +76,44 @@ static int RecreateAtlas_Process(void* _ctx)
     {
         SCOPED_MUTEX(state->mutex);
         float triangles_per_sprite = 0.0f;
+        float occupancy_percent = 0.0f;
         if (project->context && project->context->num_images > 0)
         {
             int total_triangles = 0;
+            float triangles_area = 0.0f;
             for (int i = 0; i < project->context->num_images; ++i)
             {
                 apImage* image = project->context->images[i];
                 if (image && image->num_vertices > 0)
+                {
                     total_triangles += image->num_vertices / 3;
+                    for (int v = 0; v + 2 < image->num_vertices; v += 3)
+                    {
+                        apPosf a = image->vertices[v + 0];
+                        apPosf b = image->vertices[v + 1];
+                        apPosf c = image->vertices[v + 2];
+                        float area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+                        triangles_area += 0.5f * fabsf(area);
+                    }
+                }
             }
             triangles_per_sprite = (float)total_triangles / (float)project->context->num_images;
+
+            float page_area = 0.0f;
+            for (int i = 0; i < project->context->num_pages; ++i)
+            {
+                apPage* page = apGetPage(project->context, i);
+                if (!page)
+                    continue;
+                page_area += (float)(page->dimensions.width * page->dimensions.height);
+            }
+            if (page_area > 0.0f)
+                occupancy_percent = (triangles_area / page_area) * 100.0f;
         }
         project->stats.num_images = (int)state->images.Size();
         project->stats.layout_time = pack_time;
         project->stats.triangles_per_sprite = triangles_per_sprite;
+        project->stats.occupancy_percent = occupancy_percent;
         state->num_pages = 0;
         state->pages = apRenderPages(project->context, &state->num_pages, 0);
     }

@@ -1203,6 +1203,7 @@ void DrawEditor(AppState* state, int width, int height)
             ImGui::Text("Loading Time: %.2f ms", stats.image_load_time / 1000.0f);
             ImGui::Text("Packing Time: %.2f ms", stats.layout_time / 1000.0f);
             ImGui::Text("Triangles/Sprite: %.2f", stats.triangles_per_sprite);
+            ImGui::Text("Occupancy: %.2f%%", stats.occupancy_percent);
         }
         else
         {
@@ -1210,6 +1211,7 @@ void DrawEditor(AppState* state, int width, int height)
             ImGui::Text("Loading Time: --");
             ImGui::Text("Packing Time: --");
             ImGui::Text("Triangles/Sprite: --");
+            ImGui::Text("Occupancy: --");
         }
     ImGui::End();
 
