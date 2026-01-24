@@ -448,11 +448,14 @@ static void DrawPackerOptions(AppState* state)
 
     ImGui::Text("General Packer Options");
 
-    int page_sizes[8] = { 0 };
+    int page_sizes[32] = { 0 };
+    int max_page_sizes = (int)(sizeof(page_sizes) / sizeof(page_sizes[0]));
     int num_page_sizes = 1;
     int page_size_index = 0;
     int current_size = apIsPowerOfTwo(state->max_image_size) ? state->max_image_size : apNextPowerOfTwo(state->max_image_size);
-    while (current_size <= 16384)
+    if (current_size < 1)
+        current_size = 1;
+    while (current_size <= 16384 && num_page_sizes < max_page_sizes)
     {
         if (project->options.page_size == current_size)
         {
@@ -1190,9 +1193,6 @@ void DrawEditor(AppState* state, int width, int height)
 
             ImGui::EndTabBar();
         }
-    ImGui::End();
-
-    ImGui::Begin("#textures_bottom");
     ImGui::End();
 
     ImGui::Begin("#stats");

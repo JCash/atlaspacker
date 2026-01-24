@@ -136,12 +136,25 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
         apProject* project = apLoadProjectFromPath(ctx->path);
         if (project)
         {
-            if (!apExportUpdateOptions(project, state->exporter_path))
+            if (project->exporter)
             {
+                char path[2048];
+                const char* exporter = FindExporter(state, project->exporter, path, sizeof(path));
+                if (exporter)
+                {
+                    free((void*)state->exporter_path);
+                    state->exporter_path = strdup(exporter);
+                    if (!apExportUpdateOptions(project, state->exporter_path))
+                    {
 
+                    }
+                    project->exporter_defaults = apExportGetDefaultOptions(project, state->exporter_path);
+                }
+                else
+                {
+                    fprintf(stderr, "Failed to find exporter '%s/exporter.lua'\n", project->exporter);
+                }
             }
-
-            project->exporter_defaults = apExportGetDefaultOptions(project, state->exporter_path);
 
             apDebugPrintProject(project);
 
