@@ -27,7 +27,7 @@ The most urgent ones, to make this a functioning tool, are marked with `(mvp1)` 
 
 # Exporter
 
-* [ ] `(mvp1)` Add output options for png, tga etc
+* [ ] `(mvp1)` Add image output options for png, tga etc
 * [ ] Add png post process step (e.g. TinyPng?)
 * [ ] Add more default exporters: .json, etc
 
@@ -41,10 +41,12 @@ The most urgent ones, to make this a functioning tool, are marked with `(mvp1)` 
 
 App:
 
+* [ ] `(mvp1)` Implement a "dirty" flag (and check when closing the project)
 * [ ] `(mvp1)` Documentation
 * [ ] `(mvp1)` Windows support
 * [ ] Linux support
 * [ ] `(mvp1)` App Icon - macOS/Windows
+* [ ] About dialog with version number, and info
 * [ ] Outline/App: Add support for drag&drop of folder/file
 * [ ] Tooltips on hover (for most UI elements)
 * [ ] Improve the menu bar: https://github.com/thomashope/native-menu-bar
