@@ -77,10 +77,12 @@ static int RecreateAtlas_Process(void* _ctx)
         SCOPED_MUTEX(state->mutex);
         float triangles_per_sprite = 0.0f;
         float occupancy_percent = 0.0f;
+        float sprite_area_percent = 0.0f;
         if (project->context && project->context->num_images > 0)
         {
             int total_triangles = 0;
             float triangles_area = 0.0f;
+            float original_area = 0.0f;
             for (int i = 0; i < project->context->num_images; ++i)
             {
                 apImage* image = project->context->images[i];
@@ -96,6 +98,8 @@ static int RecreateAtlas_Process(void* _ctx)
                         triangles_area += 0.5f * fabsf(area);
                     }
                 }
+                if (image)
+                    original_area += (float)(image->width * image->height);
             }
             triangles_per_sprite = (float)total_triangles / (float)project->context->num_images;
 
@@ -109,11 +113,14 @@ static int RecreateAtlas_Process(void* _ctx)
             }
             if (page_area > 0.0f)
                 occupancy_percent = (triangles_area / page_area) * 100.0f;
+            if (original_area > 0.0f)
+                sprite_area_percent = (triangles_area / original_area) * 100.0f;
         }
         project->stats.num_images = (int)state->images.Size();
         project->stats.layout_time = pack_time;
         project->stats.triangles_per_sprite = triangles_per_sprite;
         project->stats.occupancy_percent = occupancy_percent;
+        project->stats.sprite_area_percent = sprite_area_percent;
         state->num_pages = 0;
         state->pages = apRenderPages(project->context, &state->num_pages, 0);
     }
