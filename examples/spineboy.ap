@@ -15,12 +15,6 @@
 	},
 	"exporter":	{
 		"exporter":	"defold",
-		"options":	[{
-				"name":	"atlas_file",
-				"value":	"default.tpinfo"
-			}, {
-				"name":	"old_value",
-				"value":	"Some Old Value"
-			}]
+		"options":	[]
 	}
 }

@@ -60,3 +60,5 @@ image*.tga
 
 **/.DS_Store
 .vscode/**
+
+/tmp
