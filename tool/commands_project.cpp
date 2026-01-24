@@ -163,6 +163,12 @@ static void ProjectFileOpen_Finished(int result, void* _ctx)
             ClearExporterOptionCache(state);
 
             SCOPED_MUTEX(state->mutex);
+            ResetProjectState(state);
+            if (state->path)
+            {
+                free((void*)state->path);
+                state->path = 0;
+            }
             state->project = project;
             state->path    = ctx->path;
             ctx->path      = 0;
