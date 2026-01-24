@@ -54,18 +54,18 @@ struct AppState
     HWorker     uithread;   // Delayed jobs like file open dialogs
 
     // Set if a modal dialog is already opened. To disable accidental ImGui interactions
-    int         modal_dialog:1;
+    unsigned int modal_dialog:1;
     // Changes were made, and the project is dirty
-    int         dirty:1;
+    unsigned int dirty:1;
     // Avoid double-queueing open dialogs from a single click
-    int         project_open_pending:1;
+    unsigned int project_open_pending:1;
     // Avoid double-queueing save/export from a single click
-    int         project_save_pending:1;
-    int         project_export_pending:1;
+    unsigned int project_save_pending:1;
+    unsigned int project_export_pending:1;
     // Skip menu-item mouse-up after already queuing on mouse-down
-    int         menu_skip_open_release:1;
-    int         menu_skip_save_release:1;
-    int         menu_skip_export_release:1;
+    unsigned int menu_skip_open_release:1;
+    unsigned int menu_skip_save_release:1;
+    unsigned int menu_skip_export_release:1;
 
     // // Async state
     int         loading_images; // Loading images is underway

@@ -599,8 +599,6 @@ static void DrawAtlasPages(AppState* state)
 
     ImGuiIO& io = ImGui::GetIO();
     bool hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem);
-    float scroll_x = ImGui::GetScrollX();
-    float scroll_y = ImGui::GetScrollY();
 
     bool is_left_down = ImGui::IsMouseDown(ImGuiMouseButton_Left);
     if (hovered && io.MouseWheel != 0.0f)
@@ -732,7 +730,6 @@ static void DrawPreferences(AppState* state)
     Preferences* prefs = state->prefs;
     ImGui::Separator();
 
-    ImGuiTableFlags table_flags = ImGuiTableFlags_ScrollY | ImGuiTableFlags_BordersV | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_Resizable | ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody;
     if (ImGui::BeginListBox("Exporter Folders"))
     {
         for (int i = prefs->exporter_folders.Size()-1; i >= 0; i--)
@@ -749,7 +746,7 @@ static void DrawPreferences(AppState* state)
         for (int i = 0; i < state->exporter_folders.Size(); ++i)
         {
             const char* folder = state->exporter_folders[i];
-            ImGui::Text(folder);
+            ImGui::Text("%s", folder);
         }
         ImGui::EndDisabled();
 
@@ -980,10 +977,9 @@ static void DrawExporterOptions(AppState* state)
 
     ImGui::Text("Exporter Options");
 
-    bool dirty = false;
     if (project->exporter_defaults)
     {
-        dirty |= DrawOptions(project->exporter_options, project->exporter_defaults);
+        DrawOptions(project->exporter_options, project->exporter_defaults);
     }
 
     ImGui::EndGroup();
