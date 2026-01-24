@@ -1,0 +1,18 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
+// https://github.com/JCash/atlaspacker
+
+#ifndef ATLASPACKER_PATH_H
+#define ATLASPACKER_PATH_H
+
+#include <stddef.h>
+
+void apPathSplitProjectPath(const char* project_path, char* out_dir, size_t out_dir_size,
+                            char* out_name, size_t out_name_size);
+
+void apPathResolveStringPatterns(char* buffer, size_t buffer_size, const char* pattern,
+                                 const char** key_value_pairs, int num_pairs);
+
+void apPathNormalize(char* path);
+
+#endif // ATLASPACKER_PATH_H

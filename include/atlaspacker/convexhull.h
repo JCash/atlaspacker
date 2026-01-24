@@ -1,8 +1,9 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
 // https://github.com/JCash/atlaspacker
-// License: MIT
-// @2021-@2023 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_CONVEXHULL_H
+#define ATLASPACKER_CONVEXHULL_H
 
 #include <stdint.h>
 #include <atlaspacker/atlaspacker.h>
@@ -20,3 +21,5 @@ void apHullFindLargestBoxes(int width, int height, uint8_t* data, APHullBoxCallb
 apPosf* apHullFromImage(uint8_t* image, int width, int height, int* num_vertices);
 
 apPosf* apCreateBoxVertices(apPos pos, apSize size, int* num_vertices);
+
+#endif // ATLASPACKER_CONVEXHULL_H

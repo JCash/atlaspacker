@@ -16,7 +16,7 @@ env:
 jobs:
 
   build_macos:
-    runs-on: macOS-latest
+    runs-on: macos-latest
 
     name: macOS
     steps:

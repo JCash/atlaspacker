@@ -1,3 +1,7 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
+// https://github.com/JCash/atlaspacker
+
 #include <memory.h>
 
 #define JC_TEST_IMPLEMENTATION
@@ -6,7 +10,7 @@
 extern "C" {
 #include <stb_wrappers.h>
 #include <atlaspacker/convexhull.h>
-#include "utils.h"
+#include <atlaspacker/util.h>
 }
 
 

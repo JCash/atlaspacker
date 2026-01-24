@@ -1,8 +1,9 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
 // https://github.com/JCash/atlaspacker
-// License: MIT
-// @2021-@2023 Mathias Westerdahl
 
-#pragma once
+#ifndef ATLASPACKER_BINPACKER_H
+#define ATLASPACKER_BINPACKER_H
 
 #include <atlaspacker/atlaspacker.h>
 
@@ -25,3 +26,5 @@ typedef struct
 void      apBinPackerSetDefaultOptions(apBinPackerOptions* options);
 apPacker* apBinPackerCreate(apBinPackerOptions* options);
 void      apBinPackerDestroy(apPacker* packer);
+
+#endif // ATLASPACKER_BINPACKER_H

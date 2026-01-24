@@ -1,9 +1,9 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
 // https://github.com/JCash/atlaspacker
-// License: MIT
-// @2021-@2023 Mathias Westerdahl
 
-/////////////////////////////////////////////////////////
-#pragma once
+#ifndef ATLASPACKER_ATLASPACKER_H
+#define ATLASPACKER_ATLASPACKER_H
 
 #include <stdint.h>
 
@@ -114,6 +114,7 @@ void        apPageAddImage(apPage* page, apImage* image);
 uint64_t    apGetTime(); // for profiling
 
 // Math functions
+int         apIsPowerOfTwo(uint32_t v);
 uint32_t    apNextPowerOfTwo(uint32_t v);
 
 // Rotates a coord (x,y) in fixed rotations of [0,90,180,270] degrees
@@ -132,3 +133,5 @@ int         apMathRoundUp(int x, int multiple);
 // Collision (takes two arrays of vertices, each forming a polygon)
 // Vertices are in CCW order
 int         apOverlapTest2D(const apPosf* a, int sizea, const apPosf* b, int sizeb);
+
+#endif // ATLASPACKER_ATLASPACKER_H

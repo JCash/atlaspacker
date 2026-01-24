@@ -1,6 +1,6 @@
+// Copyright (c) 2021-2026 Mathias Westerdahl
+// Licensed under the MIT License. See http://opensource.org/licenses/MIT
 // https://github.com/JCash/atlaspacker
-// License: MIT
-// @2021-@2023 Mathias Westerdahl
 
 #include <atlaspacker/atlaspacker.h>
 #include <atlaspacker/binpacker.h>
@@ -186,25 +186,15 @@ void apCopyRGBA(uint8_t* dest, int dest_width, int dest_height, int dest_channel
             for (int c = 0; c < source_channels; ++c)
                 color[c] = source[c];
 
-            int alphathreshold = 8;
-            if (alphathreshold >= 0 && color[3] <= alphathreshold)
-                continue; // Skip texels that are <= the alpha threshold
-
             for (int c = 0; c < dest_channels; ++c)
                 dest[dest_index+c] = color[c];
-
-            if (color[3] > 0 && color[3] < 255)
-            {
-                uint32_t r = dest[dest_index+0] + 48;
-                dest[dest_index+0] = (uint8_t)(r > 255 ? 255 : r);
-                dest[dest_index+1] = dest[dest_index+1] / 2;
-                dest[dest_index+2] = dest[dest_index+2] / 2;
-
-                uint32_t a = dest[dest_index+3] + 128;
-                dest[dest_index+3] = (uint8_t)(a > 255 ? 255 : a);
-            }
         }
     }
+}
+
+int apIsPowerOfTwo(uint32_t x)
+{
+    return x && (!(x & (x - 1)));
 }
 
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2Float
