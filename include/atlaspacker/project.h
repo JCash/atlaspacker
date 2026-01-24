@@ -41,6 +41,7 @@ typedef struct apProjectStats
     int         num_images;
     uint64_t    image_load_time;   // microseconds
     uint64_t    layout_time;       // microseconds
+    float       triangles_per_sprite;
 } apProjectStats;
 
 typedef struct

@@ -74,8 +74,21 @@ static int RecreateAtlas_Process(void* _ctx)
 
     {
         SCOPED_MUTEX(state->mutex);
+        float triangles_per_sprite = 0.0f;
+        if (project->context && project->context->num_images > 0)
+        {
+            int total_triangles = 0;
+            for (int i = 0; i < project->context->num_images; ++i)
+            {
+                apImage* image = project->context->images[i];
+                if (image && image->num_vertices > 0)
+                    total_triangles += image->num_vertices / 3;
+            }
+            triangles_per_sprite = (float)total_triangles / (float)project->context->num_images;
+        }
         project->stats.num_images = (int)state->images.Size();
         project->stats.layout_time = pack_time;
+        project->stats.triangles_per_sprite = triangles_per_sprite;
         state->num_pages = 0;
         state->pages = apRenderPages(project->context, &state->num_pages, 0);
     }
