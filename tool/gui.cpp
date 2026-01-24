@@ -1216,7 +1216,7 @@ void DrawEditor(AppState* state, int width, int height)
                 ImGui::SetTooltip("How much of the final atlas is occupied.\nCalculated as (Area of the sprite triangles) / (Area of atlas pages)");
             ImGui::Text("Sprite Area: %.2f%%", stats.sprite_area_percent);
             if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
-                ImGui::SetTooltip("Describes how much area is trimmed. 100% = no trimming.\nCalculated as (Area of sprite triangles) / (Area of original images)");
+                ImGui::SetTooltip("Describes how much area is trimmed. Lower is better. (100%% = no trimming).\nCalculated as (Area of sprite triangles) / (Area of original images)");
         }
         else
         {
