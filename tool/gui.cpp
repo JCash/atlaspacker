@@ -1193,6 +1193,31 @@ void DrawEditor(AppState* state, int width, int height)
 
     ImGui::Begin("#stats");
         apProjectStats stats;
+        if (ImGui::BeginPopupContextWindow("stats_context", ImGuiPopupFlags_MouseButtonRight | ImGuiPopupFlags_NoOpenOverItems))
+        {
+            if (ImGui::MenuItem("Copy stats"))
+            {
+                char buffer[256];
+                if (state->project && apProjectGetState(state->project, &stats))
+                {
+                    snprintf(buffer, sizeof(buffer),
+                        "# images: %d\nLoading Time: %.2f ms\nPacking Time: %.2f ms\nTriangles/Sprite: %.2f\nOccupancy: %.2f%%\nSprite Area: %.2f%%",
+                        stats.num_images,
+                        stats.image_load_time / 1000.0f,
+                        stats.layout_time / 1000.0f,
+                        stats.triangles_per_sprite,
+                        stats.occupancy_percent,
+                        stats.sprite_area_percent);
+                }
+                else
+                {
+                    snprintf(buffer, sizeof(buffer),
+                        "# images: --\nLoading Time: --\nPacking Time: --\nTriangles/Sprite: --\nOccupancy: --\nSprite Area: --");
+                }
+                ImGui::SetClipboardText(buffer);
+            }
+            ImGui::EndPopup();
+        }
         if (state->project && apProjectGetState(state->project, &stats))
         {
             ImGui::Text("# images: %d", stats.num_images);

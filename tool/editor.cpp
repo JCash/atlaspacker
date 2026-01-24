@@ -345,6 +345,8 @@ int main(int argc, char* argv[])
         .event_userdata_cb = OnSokolEvent,
         .logger.func = slog_func,
         .enable_dragndrop = true,
+        .enable_clipboard = true,
+        .clipboard_size = 16384,
         .max_dropped_files = 8 *1024,
         .max_dropped_file_path_length = 8192,
         .window_title = title,
