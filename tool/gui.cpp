@@ -1200,11 +1200,23 @@ void DrawEditor(AppState* state, int width, int height)
         if (state->project && apProjectGetState(state->project, &stats))
         {
             ImGui::Text("# images: %d", stats.num_images);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("Total number of source images");
             ImGui::Text("Loading Time: %.2f ms", stats.image_load_time / 1000.0f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("Total time loading source images (Wall clock time)");
             ImGui::Text("Packing Time: %.2f ms", stats.layout_time / 1000.0f);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("Total time packing the images (Wall clock time)");
             ImGui::Text("Triangles/Sprite: %.2f", stats.triangles_per_sprite);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("The average number of triangles per image.\nCalculated as (Total number of triangles) / (Number of images)");
             ImGui::Text("Occupancy: %.2f%%", stats.occupancy_percent);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("How much of the final atlas is occupied.\nCalculated as (Area of the sprite triangles) / (Area of atlas pages)");
             ImGui::Text("Sprite Area: %.2f%%", stats.sprite_area_percent);
+            if (ImGui::IsItemHovered(ImGuiHoveredFlags_None))
+                ImGui::SetTooltip("Describes how much area is trimmed. 100% = no trimming.\nCalculated as (Area of sprite triangles) / (Area of original images)");
         }
         else
         {
