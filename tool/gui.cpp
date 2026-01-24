@@ -1048,18 +1048,24 @@ void DrawEditor(AppState* state, int width, int height)
 
     ImGui::Begin("#settings", 0, ImGuiWindowFlags_MenuBar);
 
+#if defined(__APPLE__)
+    #define COMMAND_KEY "CMD"
+#else
+    #define COMMAND_KEY "CTRL"
+#endif
+
     if (ImGui::BeginMenuBar())
     {
         if (ImGui::BeginMenu("File"))
         {
-            bool new_activated = ImGui::MenuItem("New File", "CTRL+N");
+            bool new_activated = ImGui::MenuItem("New File", COMMAND_KEY "+N");
             if (new_activated)
             {
                 CommandProjectFileNew(state->uithread, state);
             }
 
             bool open_requested = false;
-            bool open_activated = ImGui::MenuItem("Open...", "CTRL+O");
+            bool open_activated = ImGui::MenuItem("Open...", COMMAND_KEY "+O");
             bool open_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
             // macOS: Since the file dialog mustn't be opened in the
@@ -1089,7 +1095,7 @@ void DrawEditor(AppState* state, int width, int height)
             }
 
             bool save_requested = false;
-            bool save_activated = ImGui::MenuItem("Save", "CTRL+S");
+            bool save_activated = ImGui::MenuItem("Save", COMMAND_KEY "+S");
             bool save_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
             // macOS: See comment above
@@ -1115,7 +1121,7 @@ void DrawEditor(AppState* state, int width, int height)
             }
 
             bool export_requested = false;
-            bool export_activated = ImGui::MenuItem("Export", "CTRL+E");
+            bool export_activated = ImGui::MenuItem("Export", COMMAND_KEY "+E");
             bool export_clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
 
             // macOS: See comment above
@@ -1144,6 +1150,7 @@ void DrawEditor(AppState* state, int width, int height)
         }
         ImGui::EndMenuBar();
     }
+#undef COMMAND_KEY
 
     if (ImGui::BeginTabBar("#tabs"))
     {
